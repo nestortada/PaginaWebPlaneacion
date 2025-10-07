@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Planeación de Producción y Simulación</title>
+  <link rel="icon" href="/static/favicon.ico">
+  <style>
+    :root { --bg:#f7f7f7; --card:#fff; --text:#333; --muted:#666; --border:#ddd; }
+    html, body { margin:0; padding:0; background:var(--bg); color:var(--text); font-family:system-ui, Arial, sans-serif; }
+    .container { max-width:1200px; margin:0 auto; padding:24px; }
+    h1 { margin:0 0 8px; font-size:28px; }
+    p.lead { margin:0 0 24px; color:var(--muted); }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:20px; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+    .card h2 { margin:0 0 12px; font-size:18px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid var(--border); padding: 8px; text-align: center; }
+    th { background: #f2f2f2; }
+    input[type="number"] { width: 100%; padding: 6px; box-sizing: border-box; border:1px solid var(--border); border-radius:8px; }
+    .grid { display: grid; grid-template-columns: repeat(4, minmax(220px,1fr)); gap: 12px; }
+    .grid .field { display:flex; flex-direction:column; gap:6px; }
+    label { font-size:12px; text-transform:uppercase; letter-spacing:.02em; color:#555; }
+    .row-actions { display:flex; justify-content:flex-end; gap:12px; }
+    button { padding:10px 16px; border:none; border-radius:10px; background:#0f62fe; color:white; font-weight:600; cursor:pointer; }
+    button:hover { background:#095ad8; }
+    .results-section { margin-top: 24px; }
+    .section-title { margin: 18px 0 8px; font-size: 18px; }
+    .figure-container img { max-width: 100%; height: auto; margin: 8px 0 16px; border-radius:10px; border:1px solid var(--border); }
+    .alert { padding:10px 12px; border-radius:8px; border:1px solid #f5c2c7; background:#fff2f3; color:#842029; }
+    .ok { padding:10px 12px; border-radius:8px; border:1px solid #cfe8cf; background:#f4fff4; color:#164b16; }
+    .muted { color: var(--muted); font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Planeación de Producción y Simulación</h1>
+    <p class="lead">Edita los parámetros. Si dejas un campo vacío, se usará el valor por defecto.</p>
+
+    <!-- DEMANDA -->
+    <div class="card">
+      <h2>Demanda mensual por producto (litros)</h2>
+      <table id="data-table">
+        <thead>
+          <tr>
+            <th>Mes</th>
+            <th title="Energizante">Energizante</th>
+            <th title="Isotónica">Isotónica</th>
+            <th title="Agua saborizada">Agua saborizada</th>
+            <th title="Té">Té</th>
+            <th title="Jugo">Jugo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for month in month_order %}
+            {% set values = default_data[month] %}
+            <tr data-month="{{ month }}">
+              <td style="text-align:left;font-weight:600">{{ month }}</td>
+              {% for idx in range(5) %}
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="{{ month }}" data-prod="{{ idx }}"
+                    value="{{ values[idx] }}"
+                    data-default="{{ values[idx] }}"
+                    title="Demanda de {{ month }} para producto {{ idx + 1 }}"
+                  />
+                </td>
+              {% endfor %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div class="muted">Sugerencia: pega números rápidamente usando TAB/Shift+TAB.</div>
+    </div>
+
+    <!-- TIEMPOS -->
+    <div class="card">
+      <h2>Tiempos de procesos (minutos)</h2>
+      <table id="times-table">
+        <thead>
+          <tr><th style="width:50%">Parámetro</th><th>Valor</th></tr>
+        </thead>
+        <tbody>
+          {% for key, val in default_times.items() %}
+            <tr>
+              <td style="text-align:left">{{ key }}</td>
+              <td>
+                <input
+                  type="number" step="0.1" min="0"
+                  id="time-{{ key }}"
+                  value="{{ val }}"
+                  data-default="{{ val }}"
+                  title="Tiempo para {{ key }}"
+                />
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- PARÁMETROS -->
+    <div class="card">
+      <h2>Parámetros adicionales</h2>
+      <div class="grid">
+        <div class="field">
+          <label title="Proporción de inventario inicial respecto a la venta media mensual">p_inv_inicial</label>
+          <input id="p_inv_inicial" type="number" step="0.01" min="0" value="0.25" data-default="0.25" />
+        </div>
+        <div class="field">
+          <label title="Proporción de inventario final requerido en diciembre">p_inv_final</label>
+          <input id="p_inv_final" type="number" step="0.01" min="0" value="0.10" data-default="0.10" />
+        </div>
+        <div class="field">
+          <label title="Unidad (litros por lote / conversión)">unidad</label>
+          <input id="unidad" type="number" step="0.1" min="1" value="3" data-default="3" />
+        </div>
+        <div class="field">
+          <label title="Costo de producción por litro">ct</label>
+          <input id="ct" type="number" step="1" min="0" value="578" data-default="578" />
+        </div>
+        <div class="field">
+          <label title="Costo de inventario por litro-mes">ht</label>
+          <input id="ht" type="number" step="1" min="0" value="145" data-default="145" />
+        </div>
+        <div class="field">
+          <label title="Costo de penalización por faltante">pit</label>
+          <input id="pit" type="number" step="1" min="0" value="10000000" data-default="10000000" />
+        </div>
+        <div class="field">
+          <label title="Costo por hora regular">crt</label>
+          <input id="crt" type="number" step="0.1" min="0" value="5931.25" data-default="5931.25" />
+        </div>
+        <div class="field">
+          <label title="Costo por hora extra">cot</label>
+          <input id="cot" type="number" step="0.1" min="0" value="5931.25" data-default="5931.25" />
+        </div>
+        <div class="field">
+          <label title="Costo por contratar trabajadores adicionales">cwt</label>
+          <input id="cwt" type="number" step="0.1" min="0" value="5931.25" data-default="5931.25" />
+        </div>
+        <div class="field">
+          <label title="Costo por reducir trabajadores">cwt_prima</label>
+          <input id="cwt_prima" type="number" step="0.1" min="0" value="5931.25" data-default="5931.25" />
+        </div>
+        <div class="field">
+          <label title="Costo por unidad producida en el modelo desagregado">costo_prod</label>
+          <input id="costo_prod" type="number" step="0.1" min="0" value="1.0" data-default="1.0" />
+        </div>
+        <div class="field">
+          <label title="Costo de inventario en el modelo desagregado">costo_inv</label>
+          <input id="costo_inv" type="number" step="0.1" min="0" value="0.25" data-default="0.25" />
+        </div>
+        <div class="field">
+          <label title="Número de réplicas en la simulación">reps</label>
+          <input id="reps" type="number" step="1" min="1" value="10" data-default="10" />
+        </div>
+        <div class="field">
+          <label title="Usar restricción de no producir meses consecutivos">use_no_consecutive</label>
+          <input id="use_no_consecutive" type="checkbox"/>
+        </div>
+        <div class="field">
+          <label title="Usar suavizado en la producción mensual">use_smooth</label>
+          <input id="use_smooth" type="checkbox"/>
+        </div>
+        <div class="field">
+          <label title="Graficar series de producción/demanda">graficar</label>
+          <input id="graficar" type="checkbox" checked/>
+        </div>
+        <div class="field">
+          <label title="Retornar tablas de resultados">return_tables</label>
+          <input id="return_tables" type="checkbox" checked/>
+        </div>
+        <div class="field">
+          <label title="Generar gráficos de la simulación">make_plots</label>
+          <input id="make_plots" type="checkbox" checked/>
+        </div>
+        <div class="field">
+          <label title="Mostrar información detallada en consola">verbose</label>
+          <input id="verbose" type="checkbox" checked/>
+        </div>
+      </div>
+      <div class="row-actions"><button id="run-btn" type="button">Planeación</button></div>
+      <div class="muted">Tip: los *tooltips* están en los títulos de cada etiqueta.</div>
+    </div>
+
+    <!-- RESULTADOS -->
+    <div id="results" class="results-section"></div>
+  </div>
+
+  <script>
+    function fallbackNumber(input) {
+      const raw = (input.value || '').trim();
+      if (raw === '') return parseFloat(input.dataset.default);
+      const n = Number(raw);
+      return Number.isFinite(n) ? n : parseFloat(input.dataset.default);
+    }
+
+    function gatherData() {
+      const data = {};
+      document.querySelectorAll('#data-table tbody tr').forEach(row => {
+        const month = row.getAttribute('data-month');
+        const values = [];
+        row.querySelectorAll('input').forEach(input => {
+          // usa value si existe, si no, usa data-default
+          const raw = (input.value || '').trim();
+          const def = parseFloat(input.dataset.default);
+          values.push(raw === '' ? def : Number(raw));
+        });
+        data[month] = values;
+      });
+      return data;
+    }
+
+    function gatherTimes() {
+      const times = {};
+      document.querySelectorAll('#times-table input').forEach(input => {
+        const key = input.id.replace('time-','');
+        const val = (input.value || '').trim();
+        times[key] = val === '' ? parseFloat(input.dataset.default) : Number(val);
+      });
+      return times;
+    }
+
+    async function runSimulation() {
+      const payload = {
+        data: gatherData(),
+        p_inv_inicial: fallbackNumber(document.getElementById('p_inv_inicial')),
+        p_inv_final:   fallbackNumber(document.getElementById('p_inv_final')),
+        tiempos_procesos: gatherTimes(),
+        unidad: fallbackNumber(document.getElementById('unidad')),
+        use_no_consecutive: document.getElementById('use_no_consecutive').checked,
+        use_smooth: document.getElementById('use_smooth').checked,
+        ct: fallbackNumber(document.getElementById('ct')),
+        ht: fallbackNumber(document.getElementById('ht')),
+        pit: fallbackNumber(document.getElementById('pit')),
+        crt: fallbackNumber(document.getElementById('crt')),
+        cot: fallbackNumber(document.getElementById('cot')),
+        cwt: fallbackNumber(document.getElementById('cwt')),
+        cwt_prima: fallbackNumber(document.getElementById('cwt_prima')),
+        graficar: document.getElementById('graficar').checked,
+        costo_prod: fallbackNumber(document.getElementById('costo_prod')),
+        costo_inv:  fallbackNumber(document.getElementById('costo_inv')),
+        return_tables: document.getElementById('return_tables').checked,
+        make_plots: document.getElementById('make_plots').checked,
+        reps: fallbackNumber(document.getElementById('reps')),
+        verbose: document.getElementById('verbose').checked
+      };
+
+      const resultsEl = document.getElementById('results');
+      resultsEl.innerHTML = '<div class="muted">Ejecutando… esto puede tardar unos segundos ⏳</div>';
+
+      try {
+        const res = await fetch('/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+
+        if (!res.ok || result.error) {
+          resultsEl.innerHTML = `<div class="alert"><strong>Error:</strong> ${result.error || 'Error desconocido'}</div>`;
+          return;
+        }
+
+        let html = '';
+        html += `<div class="ok"><strong>Estado del modelo agregado:</strong> ${result.status} &nbsp; | &nbsp; <strong>Valor objetivo:</strong> ${result.z}</div>`;
+
+        html += `<h3 class="section-title">Tabla de Desagregación</h3>`;
+        html += result.tabla_desag || '<div class="muted">No disponible.</div>';
+
+        html += `<h3 class="section-title">Tabla de Producción por producto</h3>`;
+        html += result.tabla_prod || '<div class="muted">No disponible.</div>';
+
+        html += `<h3 class="section-title">Tabla de Inventario por producto</h3>`;
+        html += result.tabla_inv || '<div class="muted">No disponible.</div>';
+
+        html += `<h3 class="section-title">Resultados de la simulación (Totales)</h3>`;
+        html += result.df_totales || '<div class="muted">No disponible.</div>';
+
+        html += `<h3 class="section-title">Resultados de la simulación por producto</h3>`;
+        html += result.df_productos || '<div class="muted">No disponible.</div>';
+
+        html += `<h3 class="section-title">Resultados de la simulación por estación</h3>`;
+        html += result.df_estaciones || '<div class="muted">No disponible.</div>';
+
+        if (result.figures) {
+          html += `<div class="figure-container">`;
+          const titles = {
+            'fig_throughput_prod': 'Throughput por producto',
+            'fig_arrivals_prod':   'Entradas por producto',
+            'fig_util_station':    'Utilización por estación',
+            'fig_wait_station':    'Espera por estación'
+          };
+          for (const [key, b64] of Object.entries(result.figures)) {
+            const t = titles[key] || key;
+            html += `<h4>${t}</h4><img src="data:image/png;base64,${b64}" alt="${t}">`;
+          }
+          html += `</div>`;
+        }
+
+        resultsEl.innerHTML = html;
+      } catch (err) {
+        resultsEl.innerHTML = `<div class="alert"><strong>Ocurrió un error:</strong> ${err}</div>`;
+      }
+    }
+
+    document.getElementById('run-btn').addEventListener('click', runSimulation);
+  </script>
+</body>
+</html>
