@@ -1,0 +1,30 @@
+{
+  "default_data": {
+    "January":  [75648, 44172, 66960, 31320, 75600],
+    "February": [81952, 47853, 72540, 33930, 81900],
+    "March":    [98342, 57424, 87048, 40716, 98280],
+    "April":    [107168, 62577, 94860, 44370, 107100],
+    "May":      [100864, 58896, 89280, 41760, 100800],
+    "June":     [103386, 60368, 91512, 42804, 103320],
+    "July":     [105907, 61841, 93744, 43848, 105840],
+    "August":   [108429, 63313, 95976, 44892, 108360],
+    "September":[103386, 60368, 91512, 42804, 103320],
+    "October":  [114733, 66994, 101556, 47502, 114660],
+    "November": [119776, 69939, 106020, 49590, 119700],
+    "December": [141210, 82454, 124992, 58464, 141120]
+  },
+  "default_times": {
+    "min_firstS":15, "max_firstS":25,
+    "min_pas1":26, "max_pas1":40,
+    "min_pas2":18, "max_pas2":28,
+    "min_pas3":18, "max_pas3":26,
+    "min_pas4":22, "max_pas4":33,
+    "min_pas5":24, "max_pas5":38,
+    "min_fill":10, "max_fill":15,
+    "min_label":18, "max_label":22
+  },
+  "month_order": [
+    "January","February","March","April","May","June",
+    "July","August","September","October","November","December"
+  ]
+}
