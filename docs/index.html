@@ -1,0 +1,1599 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Planeación de Producción y Simulación</title>
+  <link rel="icon" href="/static/favicon.ico">
+  <style>
+    :root { --bg:#f7f7f7; --card:#fff; --text:#333; --muted:#666; --border:#ddd; }
+    html, body { margin:0; padding:0; background:var(--bg); color:var(--text); font-family:system-ui, Arial, sans-serif; }
+    .container { max-width:1200px; margin:0 auto; padding:24px; }
+    h1 { margin:0 0 8px; font-size:28px; }
+    p.lead { margin:0 0 24px; color:var(--muted); }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:20px; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+    .card h2 { margin:0 0 12px; font-size:18px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid var(--border); padding: 8px; text-align: center; }
+    th { background: #f2f2f2; }
+    input[type="number"] { width: 100%; padding: 6px; box-sizing: border-box; border:1px solid var(--border); border-radius:8px; }
+    .grid { display: grid; grid-template-columns: repeat(4, minmax(220px,1fr)); gap: 12px; }
+    .grid .field { display:flex; flex-direction:column; gap:6px; }
+    label { font-size:12px; text-transform:uppercase; letter-spacing:.02em; color:#555; }
+    .row-actions { display:flex; justify-content:flex-end; gap:12px; }
+    button { padding:10px 16px; border:none; border-radius:10px; background:#0f62fe; color:white; font-weight:600; cursor:pointer; }
+    button:hover { background:#095ad8; }
+    .results-section { margin-top: 24px; }
+    .section-title { margin: 28px 0 12px; font-size: 18px; }
+    .table-wrap { overflow-x: auto; margin-bottom: 24px; }
+    .chart-card { background: var(--card); border:1px solid var(--border); border-radius:12px; padding:12px; margin-bottom:28px; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+    .chart-card > div { width:100%; height:360px; }
+    .sim-section { margin-bottom: 12px; }
+    .sim-table { margin-bottom: 28px; }
+    .sim-table:last-child { margin-bottom: 0; }
+    .figure-container img { max-width: 100%; height: auto; margin: 8px 0 16px; border-radius:10px; border:1px solid var(--border); }
+    .alert { padding:10px 12px; border-radius:8px; border:1px solid #f5c2c7; background:#fff2f3; color:#842029; }
+    .ok { padding:10px 12px; border-radius:8px; border:1px solid #cfe8cf; background:#f4fff4; color:#164b16; }
+    .muted { color: var(--muted); font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Planeación de Producción y Simulación</h1>
+    <p class="lead">Edita los parámetros. Si dejas un campo vacío, se usará el valor por defecto.</p>
+
+    <!-- DEMANDA -->
+    <div class="card">
+      <h2>Demanda mensual por producto (litros)</h2>
+      <table id="data-table">
+        <thead>
+          <tr>
+            <th>Mes</th>
+            <th title="Energizante">Energizante</th>
+            <th title="Isotónica">Isotónica</th>
+            <th title="Agua saborizada">Agua saborizada</th>
+            <th title="Té">Té</th>
+            <th title="Jugo">Jugo</th>
+          </tr>
+        </thead>
+        <tbody>
+          
+            
+            <tr data-month="January">
+              <td style="text-align:left;font-weight:600">January</td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="January" data-prod="0"
+                    value="75648"
+                    data-default="75648"
+                    title="Demanda de January para producto 1"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="January" data-prod="1"
+                    value="44172"
+                    data-default="44172"
+                    title="Demanda de January para producto 2"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="January" data-prod="2"
+                    value="66960"
+                    data-default="66960"
+                    title="Demanda de January para producto 3"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="January" data-prod="3"
+                    value="31320"
+                    data-default="31320"
+                    title="Demanda de January para producto 4"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="January" data-prod="4"
+                    value="75600"
+                    data-default="75600"
+                    title="Demanda de January para producto 5"
+                  />
+                </td>
+              
+            </tr>
+          
+            
+            <tr data-month="February">
+              <td style="text-align:left;font-weight:600">February</td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="February" data-prod="0"
+                    value="81952"
+                    data-default="81952"
+                    title="Demanda de February para producto 1"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="February" data-prod="1"
+                    value="47853"
+                    data-default="47853"
+                    title="Demanda de February para producto 2"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="February" data-prod="2"
+                    value="72540"
+                    data-default="72540"
+                    title="Demanda de February para producto 3"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="February" data-prod="3"
+                    value="33930"
+                    data-default="33930"
+                    title="Demanda de February para producto 4"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="February" data-prod="4"
+                    value="81900"
+                    data-default="81900"
+                    title="Demanda de February para producto 5"
+                  />
+                </td>
+              
+            </tr>
+          
+            
+            <tr data-month="March">
+              <td style="text-align:left;font-weight:600">March</td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="March" data-prod="0"
+                    value="98342"
+                    data-default="98342"
+                    title="Demanda de March para producto 1"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="March" data-prod="1"
+                    value="57424"
+                    data-default="57424"
+                    title="Demanda de March para producto 2"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="March" data-prod="2"
+                    value="87048"
+                    data-default="87048"
+                    title="Demanda de March para producto 3"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="March" data-prod="3"
+                    value="40716"
+                    data-default="40716"
+                    title="Demanda de March para producto 4"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="March" data-prod="4"
+                    value="98280"
+                    data-default="98280"
+                    title="Demanda de March para producto 5"
+                  />
+                </td>
+              
+            </tr>
+          
+            
+            <tr data-month="April">
+              <td style="text-align:left;font-weight:600">April</td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="April" data-prod="0"
+                    value="107168"
+                    data-default="107168"
+                    title="Demanda de April para producto 1"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="April" data-prod="1"
+                    value="62577"
+                    data-default="62577"
+                    title="Demanda de April para producto 2"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="April" data-prod="2"
+                    value="94860"
+                    data-default="94860"
+                    title="Demanda de April para producto 3"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="April" data-prod="3"
+                    value="44370"
+                    data-default="44370"
+                    title="Demanda de April para producto 4"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="April" data-prod="4"
+                    value="107100"
+                    data-default="107100"
+                    title="Demanda de April para producto 5"
+                  />
+                </td>
+              
+            </tr>
+          
+            
+            <tr data-month="May">
+              <td style="text-align:left;font-weight:600">May</td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="May" data-prod="0"
+                    value="100864"
+                    data-default="100864"
+                    title="Demanda de May para producto 1"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="May" data-prod="1"
+                    value="58896"
+                    data-default="58896"
+                    title="Demanda de May para producto 2"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="May" data-prod="2"
+                    value="89280"
+                    data-default="89280"
+                    title="Demanda de May para producto 3"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="May" data-prod="3"
+                    value="41760"
+                    data-default="41760"
+                    title="Demanda de May para producto 4"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="May" data-prod="4"
+                    value="100800"
+                    data-default="100800"
+                    title="Demanda de May para producto 5"
+                  />
+                </td>
+              
+            </tr>
+          
+            
+            <tr data-month="June">
+              <td style="text-align:left;font-weight:600">June</td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="June" data-prod="0"
+                    value="103386"
+                    data-default="103386"
+                    title="Demanda de June para producto 1"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="June" data-prod="1"
+                    value="60368"
+                    data-default="60368"
+                    title="Demanda de June para producto 2"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="June" data-prod="2"
+                    value="91512"
+                    data-default="91512"
+                    title="Demanda de June para producto 3"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="June" data-prod="3"
+                    value="42804"
+                    data-default="42804"
+                    title="Demanda de June para producto 4"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="June" data-prod="4"
+                    value="103320"
+                    data-default="103320"
+                    title="Demanda de June para producto 5"
+                  />
+                </td>
+              
+            </tr>
+          
+            
+            <tr data-month="July">
+              <td style="text-align:left;font-weight:600">July</td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="July" data-prod="0"
+                    value="105907"
+                    data-default="105907"
+                    title="Demanda de July para producto 1"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="July" data-prod="1"
+                    value="61841"
+                    data-default="61841"
+                    title="Demanda de July para producto 2"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="July" data-prod="2"
+                    value="93744"
+                    data-default="93744"
+                    title="Demanda de July para producto 3"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="July" data-prod="3"
+                    value="43848"
+                    data-default="43848"
+                    title="Demanda de July para producto 4"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="July" data-prod="4"
+                    value="105840"
+                    data-default="105840"
+                    title="Demanda de July para producto 5"
+                  />
+                </td>
+              
+            </tr>
+          
+            
+            <tr data-month="August">
+              <td style="text-align:left;font-weight:600">August</td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="August" data-prod="0"
+                    value="108429"
+                    data-default="108429"
+                    title="Demanda de August para producto 1"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="August" data-prod="1"
+                    value="63313"
+                    data-default="63313"
+                    title="Demanda de August para producto 2"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="August" data-prod="2"
+                    value="95976"
+                    data-default="95976"
+                    title="Demanda de August para producto 3"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="August" data-prod="3"
+                    value="44892"
+                    data-default="44892"
+                    title="Demanda de August para producto 4"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="August" data-prod="4"
+                    value="108360"
+                    data-default="108360"
+                    title="Demanda de August para producto 5"
+                  />
+                </td>
+              
+            </tr>
+          
+            
+            <tr data-month="September">
+              <td style="text-align:left;font-weight:600">September</td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="September" data-prod="0"
+                    value="103386"
+                    data-default="103386"
+                    title="Demanda de September para producto 1"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="September" data-prod="1"
+                    value="60368"
+                    data-default="60368"
+                    title="Demanda de September para producto 2"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="September" data-prod="2"
+                    value="91512"
+                    data-default="91512"
+                    title="Demanda de September para producto 3"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="September" data-prod="3"
+                    value="42804"
+                    data-default="42804"
+                    title="Demanda de September para producto 4"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="September" data-prod="4"
+                    value="103320"
+                    data-default="103320"
+                    title="Demanda de September para producto 5"
+                  />
+                </td>
+              
+            </tr>
+          
+            
+            <tr data-month="October">
+              <td style="text-align:left;font-weight:600">October</td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="October" data-prod="0"
+                    value="114733"
+                    data-default="114733"
+                    title="Demanda de October para producto 1"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="October" data-prod="1"
+                    value="66994"
+                    data-default="66994"
+                    title="Demanda de October para producto 2"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="October" data-prod="2"
+                    value="101556"
+                    data-default="101556"
+                    title="Demanda de October para producto 3"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="October" data-prod="3"
+                    value="47502"
+                    data-default="47502"
+                    title="Demanda de October para producto 4"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="October" data-prod="4"
+                    value="114660"
+                    data-default="114660"
+                    title="Demanda de October para producto 5"
+                  />
+                </td>
+              
+            </tr>
+          
+            
+            <tr data-month="November">
+              <td style="text-align:left;font-weight:600">November</td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="November" data-prod="0"
+                    value="119776"
+                    data-default="119776"
+                    title="Demanda de November para producto 1"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="November" data-prod="1"
+                    value="69939"
+                    data-default="69939"
+                    title="Demanda de November para producto 2"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="November" data-prod="2"
+                    value="106020"
+                    data-default="106020"
+                    title="Demanda de November para producto 3"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="November" data-prod="3"
+                    value="49590"
+                    data-default="49590"
+                    title="Demanda de November para producto 4"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="November" data-prod="4"
+                    value="119700"
+                    data-default="119700"
+                    title="Demanda de November para producto 5"
+                  />
+                </td>
+              
+            </tr>
+          
+            
+            <tr data-month="December">
+              <td style="text-align:left;font-weight:600">December</td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="December" data-prod="0"
+                    value="141210"
+                    data-default="141210"
+                    title="Demanda de December para producto 1"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="December" data-prod="1"
+                    value="82454"
+                    data-default="82454"
+                    title="Demanda de December para producto 2"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="December" data-prod="2"
+                    value="124992"
+                    data-default="124992"
+                    title="Demanda de December para producto 3"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="December" data-prod="3"
+                    value="58464"
+                    data-default="58464"
+                    title="Demanda de December para producto 4"
+                  />
+                </td>
+              
+                <td>
+                  <input
+                    type="number" min="0" step="1"
+                    data-month="December" data-prod="4"
+                    value="141120"
+                    data-default="141120"
+                    title="Demanda de December para producto 5"
+                  />
+                </td>
+              
+            </tr>
+          
+        </tbody>
+      </table>
+      <div class="muted">Sugerencia: pega números rápidamente usando TAB/Shift+TAB.</div>
+    </div>
+
+    <!-- TIEMPOS -->
+    <div class="card">
+      <h2>Tiempos de procesos (minutos)</h2>
+      <table id="times-table">
+        <thead>
+          <tr><th style="width:50%">Parámetro</th><th>Valor</th></tr>
+        </thead>
+        <tbody>
+          
+            <tr>
+              <td style="text-align:left">min_firstS</td>
+              <td>
+                <input
+                  type="number" step="0.1" min="0"
+                  id="time-min_firstS"
+                  value="15"
+                  data-default="15"
+                  title="Tiempo para min_firstS"
+                />
+              </td>
+            </tr>
+          
+            <tr>
+              <td style="text-align:left">max_firstS</td>
+              <td>
+                <input
+                  type="number" step="0.1" min="0"
+                  id="time-max_firstS"
+                  value="25"
+                  data-default="25"
+                  title="Tiempo para max_firstS"
+                />
+              </td>
+            </tr>
+          
+            <tr>
+              <td style="text-align:left">min_pas1</td>
+              <td>
+                <input
+                  type="number" step="0.1" min="0"
+                  id="time-min_pas1"
+                  value="26"
+                  data-default="26"
+                  title="Tiempo para min_pas1"
+                />
+              </td>
+            </tr>
+          
+            <tr>
+              <td style="text-align:left">max_pas1</td>
+              <td>
+                <input
+                  type="number" step="0.1" min="0"
+                  id="time-max_pas1"
+                  value="40"
+                  data-default="40"
+                  title="Tiempo para max_pas1"
+                />
+              </td>
+            </tr>
+          
+            <tr>
+              <td style="text-align:left">min_pas2</td>
+              <td>
+                <input
+                  type="number" step="0.1" min="0"
+                  id="time-min_pas2"
+                  value="18"
+                  data-default="18"
+                  title="Tiempo para min_pas2"
+                />
+              </td>
+            </tr>
+          
+            <tr>
+              <td style="text-align:left">max_pas2</td>
+              <td>
+                <input
+                  type="number" step="0.1" min="0"
+                  id="time-max_pas2"
+                  value="28"
+                  data-default="28"
+                  title="Tiempo para max_pas2"
+                />
+              </td>
+            </tr>
+          
+            <tr>
+              <td style="text-align:left">min_pas3</td>
+              <td>
+                <input
+                  type="number" step="0.1" min="0"
+                  id="time-min_pas3"
+                  value="18"
+                  data-default="18"
+                  title="Tiempo para min_pas3"
+                />
+              </td>
+            </tr>
+          
+            <tr>
+              <td style="text-align:left">max_pas3</td>
+              <td>
+                <input
+                  type="number" step="0.1" min="0"
+                  id="time-max_pas3"
+                  value="26"
+                  data-default="26"
+                  title="Tiempo para max_pas3"
+                />
+              </td>
+            </tr>
+          
+            <tr>
+              <td style="text-align:left">min_pas4</td>
+              <td>
+                <input
+                  type="number" step="0.1" min="0"
+                  id="time-min_pas4"
+                  value="22"
+                  data-default="22"
+                  title="Tiempo para min_pas4"
+                />
+              </td>
+            </tr>
+          
+            <tr>
+              <td style="text-align:left">max_pas4</td>
+              <td>
+                <input
+                  type="number" step="0.1" min="0"
+                  id="time-max_pas4"
+                  value="33"
+                  data-default="33"
+                  title="Tiempo para max_pas4"
+                />
+              </td>
+            </tr>
+          
+            <tr>
+              <td style="text-align:left">min_pas5</td>
+              <td>
+                <input
+                  type="number" step="0.1" min="0"
+                  id="time-min_pas5"
+                  value="24"
+                  data-default="24"
+                  title="Tiempo para min_pas5"
+                />
+              </td>
+            </tr>
+          
+            <tr>
+              <td style="text-align:left">max_pas5</td>
+              <td>
+                <input
+                  type="number" step="0.1" min="0"
+                  id="time-max_pas5"
+                  value="38"
+                  data-default="38"
+                  title="Tiempo para max_pas5"
+                />
+              </td>
+            </tr>
+          
+            <tr>
+              <td style="text-align:left">min_fill</td>
+              <td>
+                <input
+                  type="number" step="0.1" min="0"
+                  id="time-min_fill"
+                  value="10"
+                  data-default="10"
+                  title="Tiempo para min_fill"
+                />
+              </td>
+            </tr>
+          
+            <tr>
+              <td style="text-align:left">max_fill</td>
+              <td>
+                <input
+                  type="number" step="0.1" min="0"
+                  id="time-max_fill"
+                  value="15"
+                  data-default="15"
+                  title="Tiempo para max_fill"
+                />
+              </td>
+            </tr>
+          
+            <tr>
+              <td style="text-align:left">min_label</td>
+              <td>
+                <input
+                  type="number" step="0.1" min="0"
+                  id="time-min_label"
+                  value="18"
+                  data-default="18"
+                  title="Tiempo para min_label"
+                />
+              </td>
+            </tr>
+          
+            <tr>
+              <td style="text-align:left">max_label</td>
+              <td>
+                <input
+                  type="number" step="0.1" min="0"
+                  id="time-max_label"
+                  value="22"
+                  data-default="22"
+                  title="Tiempo para max_label"
+                />
+              </td>
+            </tr>
+          
+        </tbody>
+      </table>
+    </div>
+
+    <!-- PARÁMETROS -->
+    <div class="card">
+      <h2>Parámetros adicionales</h2>
+      <div class="grid">
+        <div class="field">
+          <label title="Proporción de inventario inicial respecto a la venta media mensual">p_inv_inicial</label>
+          <input id="p_inv_inicial" type="number" step="0.01" min="0" value="0.25" data-default="0.25" />
+        </div>
+        <div class="field">
+          <label title="Proporción de inventario final requerido en diciembre">p_inv_final</label>
+          <input id="p_inv_final" type="number" step="0.01" min="0" value="0.10" data-default="0.10" />
+        </div>
+        <div class="field">
+          <label title="Unidad (litros por lote / conversión)">unidad</label>
+          <input id="unidad" type="number" step="0.1" min="1" value="3" data-default="3" />
+        </div>
+        <div class="field">
+          <label title="Costo de producción por litro">ct</label>
+          <input id="ct" type="number" step="1" min="0" value="578" data-default="578" />
+        </div>
+        <div class="field">
+          <label title="Costo de inventario por litro-mes">ht</label>
+          <input id="ht" type="number" step="1" min="0" value="145" data-default="145" />
+        </div>
+        <div class="field">
+          <label title="Costo de penalización por faltante">pit</label>
+          <input id="pit" type="number" step="1" min="0" value="10000000" data-default="10000000" />
+        </div>
+        <div class="field">
+          <label title="Costo por hora regular">crt</label>
+          <input id="crt" type="number" step="0.1" min="0" value="5931.25" data-default="5931.25" />
+        </div>
+        <div class="field">
+          <label title="Costo por hora extra">cot</label>
+          <input id="cot" type="number" step="0.1" min="0" value="5931.25" data-default="5931.25" />
+        </div>
+        <div class="field">
+          <label title="Costo por contratar trabajadores adicionales">cwt</label>
+          <input id="cwt" type="number" step="0.1" min="0" value="5931.25" data-default="5931.25" />
+        </div>
+        <div class="field">
+          <label title="Costo por reducir trabajadores">cwt_prima</label>
+          <input id="cwt_prima" type="number" step="0.1" min="0" value="5931.25" data-default="5931.25" />
+        </div>
+        <div class="field">
+          <label title="Costo por unidad producida en el modelo desagregado">costo_prod</label>
+          <input id="costo_prod" type="number" step="0.1" min="0" value="1.0" data-default="1.0" />
+        </div>
+        <div class="field">
+          <label title="Costo de inventario en el modelo desagregado">costo_inv</label>
+          <input id="costo_inv" type="number" step="0.1" min="0" value="0.25" data-default="0.25" />
+        </div>
+        <div class="field">
+          <label title="Número de réplicas en la simulación">reps</label>
+          <input id="reps" type="number" step="1" min="1" value="10" data-default="10" />
+        </div>
+        <div class="field">
+          <label title="Usar restricción de no producir meses consecutivos">use_no_consecutive</label>
+          <input id="use_no_consecutive" type="checkbox"/>
+        </div>
+        <div class="field">
+          <label title="Usar suavizado en la producción mensual">use_smooth</label>
+          <input id="use_smooth" type="checkbox"/>
+        </div>
+        <div class="field">
+          <label title="Graficar series de producción/demanda">graficar</label>
+          <input id="graficar" type="checkbox" checked/>
+        </div>
+        <div class="field">
+          <label title="Retornar tablas de resultados">return_tables</label>
+          <input id="return_tables" type="checkbox" checked/>
+        </div>
+        <div class="field">
+          <label title="Generar gráficos de la simulación">make_plots</label>
+          <input id="make_plots" type="checkbox" checked/>
+        </div>
+        <div class="field">
+          <label title="Mostrar información detallada en consola">verbose</label>
+          <input id="verbose" type="checkbox" checked/>
+        </div>
+      </div>
+      <div class="row-actions"><button id="run-btn" type="button">Planeación</button></div>
+      <div class="muted">Tip: los *tooltips* están en los títulos de cada etiqueta.</div>
+    </div>
+
+    <!-- RESULTADOS -->
+    <div id="results" class="results-section"></div>
+  </div>
+
+  <!-- Load SheetJS (for Excel parsing) and Plotly (for interactive charts) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.25.2.min.js"></script>
+
+  <script>
+    // Add file input UI
+    const fileUploaderHtml = `
+      <div class="card">
+        <h2>Subir archivo Excel con demanda mensual</h2>
+        <input id="excel-file" type="file" accept=".xlsx,.xls" />
+        <div class="muted">Formato esperado: 12 filas (meses) y 5 columnas (productos) o una hoja con encabezados que incluyan los meses.</div>
+      </div>
+    `;
+    document.querySelector('.container').insertAdjacentHTML('afterbegin', fileUploaderHtml);
+
+    let lastResult = null;
+    let lastPayload = null;
+
+    function fallbackNumber(input) {
+      const raw = (input.value || '').trim();
+      if (raw === '') return parseFloat(input.dataset.default);
+      const n = Number(raw);
+      return Number.isFinite(n) ? n : parseFloat(input.dataset.default);
+    }
+    function roundToTwo(value) {
+      const num = Number(value);
+      if (!Number.isFinite(num)) return 0;
+      return Math.round((num + Number.EPSILON) * 100) / 100;
+    }
+
+    function formatNumber(value, options = {}) {
+      const num = Number(value);
+      if (!Number.isFinite(num)) {
+        return value === 0 ? "0,00" : (value ?? "");
+      }
+      const formatter = new Intl.NumberFormat("es-ES", Object.assign({
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }, options));
+      return formatter.format(num);
+    }
+
+
+    // Populate table from parsed 2D array of numbers
+    function populateDemandTableFromArray(arr) {
+      // arr expected as array of 12 rows with 5 numbers each
+      const tbody = document.querySelector('#data-table tbody');
+      const rows = tbody.querySelectorAll('tr');
+      rows.forEach((row, i) => {
+        if (!arr[i]) return;
+        const inputs = row.querySelectorAll('input');
+        inputs.forEach((inp, j) => {
+          if (typeof arr[i][j] !== 'undefined' && arr[i][j] !== null && !Number.isNaN(Number(arr[i][j]))) {
+            inp.value = Number(arr[i][j]);
+          }
+        });
+      });
+    }
+
+    // Handle Excel upload
+    document.addEventListener('change', (ev) => {
+      if (ev.target && ev.target.id === 'excel-file') {
+        const f = ev.target.files[0];
+        if (!f) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, {type: 'array'});
+          // try first sheet
+          const wsname = workbook.SheetNames[0];
+          const ws = workbook.Sheets[wsname];
+          const json = XLSX.utils.sheet_to_json(ws, {header:1, raw:true});
+          // try to extract first 12 rows with at least 5 numbers
+          const parsed = [];
+          for (let r=0; r<json.length && parsed.length<12; r++) {
+            const row = json[r];
+            // filter out rows that are empty
+            if (!row || row.length === 0) continue;
+            // try to find numbers in the row
+            const nums = row.slice(0,5).map(x => {
+              const n = Number(x);
+              return Number.isFinite(n) ? n : null;
+            });
+            // only accept rows with at least one number
+            if (nums.some(v => v !== null)) parsed.push(nums.map(v => v===null?0:v));
+          }
+          if (parsed.length === 0) {
+            alert('No se pudieron leer filas numéricas del archivo. Asegúrese de subir una hoja con valores numéricos.');
+            return;
+          }
+          // if less than 12 rows, warn but still populate top rows
+          populateDemandTableFromArray(parsed);
+        };
+        reader.readAsArrayBuffer(f);
+      }
+    });
+
+    function gatherData() {
+      const data = {};
+      document.querySelectorAll('#data-table tbody tr').forEach(row => {
+        const month = row.getAttribute('data-month');
+        const values = [];
+        row.querySelectorAll('input').forEach(input => {
+          // usa value si existe, si no, usa data-default
+          const raw = (input.value || '').trim();
+          const def = parseFloat(input.dataset.default);
+          values.push(raw === '' ? def : Number(raw));
+        });
+        data[month] = values;
+      });
+      return data;
+    }
+
+    function gatherTimes() {
+      const times = {};
+      document.querySelectorAll('#times-table input').forEach(input => {
+        const key = input.id.replace('time-','');
+        const val = (input.value || '').trim();
+        times[key] = val === '' ? parseFloat(input.dataset.default) : Number(val);
+      });
+      return times;
+    }
+
+    function appendSheet(workbook, records, sheetName, order) {
+      if (!records || !records.length) return;
+      const headerSet = {};
+      records.forEach(row => {
+        Object.keys(row || {}).forEach(key => {
+          if (!(key in headerSet)) headerSet[key] = true;
+        });
+      });
+      const headers = (order && order.length) ? order : Object.keys(headerSet);
+      if (!headers.length) return;
+      const normalized = records.map(row => {
+        const out = {};
+        headers.forEach(h => {
+          out[h] = row ? row[h] : null;
+        });
+        return out;
+      });
+      const ws = XLSX.utils.json_to_sheet(normalized, { header: headers });
+      XLSX.utils.book_append_sheet(workbook, ws, sheetName);
+    }
+
+    function attachDownloadHandler() {
+      const btn = document.getElementById('download-xlsx');
+      if (!btn) return;
+      btn.onclick = () => {
+        if (!lastResult) {
+          alert('Primero ejecuta la planeación para generar datos.');
+          return;
+        }
+        try {
+          const wb = XLSX.utils.book_new();
+          appendSheet(wb, lastResult.json_agg_table, 'Agregado', ['Mes','P(t)','I(t)','S(t)','L(RT)','NI(t)','D(t)']);
+          appendSheet(wb, lastResult.json_disagg_table, 'Desagregado');
+          appendSheet(wb, lastResult.json_tabla_produccion, 'Produccion');
+          appendSheet(wb, lastResult.json_tabla_inventario, 'Inventario');
+          appendSheet(wb, lastResult.json_sim_totales, 'Sim_Totales', ['Metrica','Media','IC95_HW']);
+          appendSheet(wb, lastResult.json_sim_productos, 'Sim_Productos');
+          appendSheet(wb, lastResult.json_sim_estaciones, 'Sim_Estaciones', ['Estacion','Capacidad_ideal','Capacidad','Utilizacion_media','Utilizacion_HW','Espera_media_min','Espera_HW']);
+          if (!wb.SheetNames.length) {
+            alert('No hay datos para exportar.');
+            return;
+          }
+          XLSX.writeFile(wb, 'planeacion_detallada.xlsx');
+        } catch (err) {
+          console.error('Error al generar el Excel:', err);
+          alert('No se pudo generar el archivo Excel.');
+        }
+      };
+    }
+
+
+    function renderCapacityTable(result) {
+      const container = document.getElementById('capacity-table-container');
+      if (!container) return;
+      const data = result.json_sim_estaciones;
+      if (!data || !data.length) {
+        container.innerHTML = result.df_estaciones || '<div class="muted">No disponible.</div>';
+        return;
+      }
+      const rowsHtml = data.map((row, idx) => {
+        const idealStr = formatNumber(row.Capacidad_ideal);
+        const usedNum = Number(row.Capacidad ?? row.Capacidad_ideal ?? '');
+        const usedStr = Number.isFinite(usedNum) ? usedNum.toFixed(2) : '';
+        const utilMedia = formatNumber(row.Utilizacion_media);
+        const utilHw = formatNumber(row.Utilizacion_HW);
+        const esperaMedia = formatNumber(row.Espera_media_min);
+        const esperaHw = formatNumber(row.Espera_HW);
+        return `
+          <tr>
+            <td>${row.Estacion}</td>
+            <td>${idealStr}</td>
+            <td>
+              <input type="number" class="cap-input" data-index="${idx}" min="0" step="0.01" value="${usedStr}" aria-label="Capacidad ajustada para ${row.Estacion}" />
+            </td>
+            <td>${utilMedia}</td>
+            <td>${utilHw}</td>
+            <td>${esperaMedia}</td>
+            <td>${esperaHw}</td>
+          </tr>`;
+      }).join('');
+      container.innerHTML = `
+        <table class="table table-sm table-bordered">
+          <thead>
+            <tr>
+              <th>Estación</th>
+              <th>Capacidad ideal [unidades]</th>
+              <th>Capacidad ajustada [unidades]</th>
+              <th>Utilización media [fracción]</th>
+              <th>IC95 Utilización [fracción]</th>
+              <th>Espera media [min]</th>
+              <th>IC95 Espera [min]</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>`;
+      const statusEl = document.getElementById('recalc-status');
+      if (statusEl) statusEl.textContent = '';
+    }
+
+    function attachRecalcHandler() {
+      const btn = document.getElementById('recalc-btn');
+      if (!btn) return;
+      btn.onclick = recalcMetrics;
+    }
+
+    async function recalcMetrics() {
+      if (!lastResult || !lastPayload) {
+        alert('Primero ejecuta la planeación para obtener resultados.');
+        return;
+      }
+      const inputs = Array.from(document.querySelectorAll('#capacity-table-container input.cap-input'));
+      if (!inputs.length) return;
+      const statusEl = document.getElementById('recalc-status');
+      const capacities = inputs.map(inp => Number(inp.value));
+      if (capacities.some(val => !Number.isFinite(val) || val <= 0)) {
+        if (statusEl) statusEl.textContent = 'Revisa las capacidades: deben ser números positivos.';
+        return;
+      }
+      if (statusEl) statusEl.textContent = 'Recalculando métricas...';
+      const btn = document.getElementById('recalc-btn');
+      if (btn) btn.disabled = true;
+      const payload = JSON.parse(JSON.stringify(lastPayload));
+      payload.capacidades_override = capacities;
+      payload.make_plots = false;
+      payload.return_tables = true;
+      try {
+        const res = await fetch('/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if (!res.ok || result.error) {
+          throw new Error(result.error || 'Error desconocido');
+        }
+        lastResult = result;
+        lastPayload = JSON.parse(JSON.stringify(payload));
+        const totalesEl = document.getElementById('sim-table-totales');
+        if (totalesEl) {
+          totalesEl.innerHTML = result.df_totales || '<div class="muted">No disponible.</div>';
+        }
+        const productosEl = document.getElementById('sim-table-productos');
+        if (productosEl) {
+          productosEl.innerHTML = result.df_productos || '<div class="muted">No disponible.</div>';
+        }
+        renderCapacityTable(result);
+        attachDownloadHandler();
+        attachRecalcHandler();
+        if (statusEl) statusEl.textContent = 'Métricas actualizadas.';
+      } catch (err) {
+        console.error(err);
+        if (statusEl) statusEl.textContent = `Error al recalcular: ${err.message}`;
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+
+
+    async function runSimulation() {
+      const payload = {
+        data: gatherData(),
+        p_inv_inicial: fallbackNumber(document.getElementById('p_inv_inicial')),
+        p_inv_final:   fallbackNumber(document.getElementById('p_inv_final')),
+        tiempos_procesos: gatherTimes(),
+        unidad: fallbackNumber(document.getElementById('unidad')),
+        use_no_consecutive: document.getElementById('use_no_consecutive').checked,
+        use_smooth: document.getElementById('use_smooth').checked,
+        ct: fallbackNumber(document.getElementById('ct')),
+        ht: fallbackNumber(document.getElementById('ht')),
+        pit: fallbackNumber(document.getElementById('pit')),
+        crt: fallbackNumber(document.getElementById('crt')),
+        cot: fallbackNumber(document.getElementById('cot')),
+        cwt: fallbackNumber(document.getElementById('cwt')),
+        cwt_prima: fallbackNumber(document.getElementById('cwt_prima')),
+        graficar: document.getElementById('graficar').checked,
+        costo_prod: fallbackNumber(document.getElementById('costo_prod')),
+        costo_inv:  fallbackNumber(document.getElementById('costo_inv')),
+        return_tables: document.getElementById('return_tables').checked,
+        make_plots: document.getElementById('make_plots').checked,
+        reps: fallbackNumber(document.getElementById('reps')),
+        verbose: document.getElementById('verbose').checked
+      };
+
+      const resultsEl = document.getElementById('results');
+      resultsEl.innerHTML = '<div class="muted">Ejecutando… esto puede tardar unos segundos ⏳</div>';
+      lastResult = null;
+      lastPayload = null;
+
+      try {
+        const res = await fetch('/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+
+        if (!res.ok || result.error) {
+          resultsEl.innerHTML = `<div class="alert"><strong>Error:</strong> ${result.error || 'Error desconocido'}</div>`;
+          return;
+        }
+
+        // Build basic info area
+        const noData = '<div class="muted">No disponible.</div>';
+        let html = '';
+        html += `<div class="ok"><strong>Estado del modelo agregado:</strong> ${result.status} &nbsp; | &nbsp; <strong>Valor objetivo:</strong> ${formatNumber(result.z)}</div>`;
+        html += `<div class="row-actions" style="margin-top:12px;"><button type="button" id="download-xlsx">Descargar Excel detallado</button></div>`;
+
+        html += `<h3 class="section-title">Tabla de Demanda Planificada (mensual, litros)</h3>`;
+        html += `<div id="agg-table-area" class="table-wrap">`;
+        if (result.json_agg_table) {
+          const rows = result.json_agg_table;
+          html += '<table class="table table-sm table-bordered"><thead><tr><th>Mes</th><th>P(t) [litros]</th><th>I(t) [litros]</th><th>S(t) [litros]</th><th>L(RT) [litros]</th><th>NI(t) [litros]</th><th>D(t) [litros]</th></tr></thead><tbody>';
+          for (const r of rows) {
+            html += `<tr><td>${r.Mes}</td><td>${formatNumber(r['P(t)'])}</td><td>${formatNumber(r['I(t)'])}</td><td>${formatNumber(r['S(t)'])}</td><td>${formatNumber(r['L(RT)'])}</td><td>${formatNumber(r['NI(t)'])}</td><td>${formatNumber(r['D(t)'])}</td></tr>`;
+          }
+          html += '</tbody></table>';
+        } else {
+          html += result.tabla_desag || noData;
+        }
+        html += `</div>`;
+
+        html += `<h3 class="section-title">Gráfico: Demanda planificada vs Producción (interactivo, litros)</h3>`;
+        html += `<div class="chart-card"><div id="plot-demand"></div></div>`;
+        html += `<h3 class="section-title">Gráfico: Desagregación por producto (interactivo, litros)</h3>`;
+        html += `<div class="chart-card"><div id="plot-desag"></div></div>`;
+
+        html += `<h3 class="section-title">Tabla de producción mensual por producto (litros)</h3>`;
+        html += `<div class="table-wrap">${result.tabla_prod || noData}</div>`;
+        html += `<h3 class="section-title">Tabla de inventario mensual por producto (litros)</h3>`;
+        html += `<div class="table-wrap">${result.tabla_inv || noData}</div>`;
+
+        html += `<h3 class="section-title">Simulación - Métricas Totales (ver unidades específicas)</h3>`;
+        html += `<div class="chart-card"><div id="plot-sim-totales"></div></div>`;
+        html += `<h3 class="section-title">Simulación - Métricas por producto (ver unidades específicas)</h3>`;
+        html += `<div class="chart-card"><div id="plot-sim-productos"></div></div>`;
+        html += `<h3 class="section-title">Simulación - Métricas por estación (ver unidades específicas)</h3>`;
+        html += `<div class="chart-card"><div id="plot-sim-estaciones-util"></div></div>`;
+        html += `<div class="chart-card"><div id="plot-sim-estaciones-wait"></div></div>`;
+
+        html += `<h3 class="section-title">Tablas de la simulación (métricas)</h3>`;
+        html += `<div class="sim-section">`;
+        html += `<div class="sim-table" id="sim-table-totales">${result.df_totales || noData}</div>`;
+        html += `<div class="sim-table" id="sim-table-productos">${result.df_productos || noData}</div>`;
+        html += `<div class="sim-table" id="sim-table-capacidades"><div id="capacity-table-container"></div><div class="row-actions" style="justify-content:flex-start;margin-top:12px;"><button type="button" id="recalc-btn">Recalcular métricas</button></div><div class="muted" id="recalc-status" style="margin-top:6px;"></div></div>`;
+        html += `</div>`;
+
+        resultsEl.innerHTML = html;
+        lastResult = result;
+        lastPayload = JSON.parse(JSON.stringify(payload));
+        renderCapacityTable(result);
+        attachDownloadHandler();
+        attachRecalcHandler();
+
+        // Render interactive plots if JSON data present
+        try {
+          const plotConfig = { responsive: true, displaylogo: false };
+          if (result.json_agg_table && result.json_agg_table.length) {
+            const agg = result.json_agg_table;
+            const months = agg.map(r => r.Mes);
+            const prodSeries = agg.map(r => roundToTwo(r['P(t)'] || 0));
+            const demSeries = agg.map(r => roundToTwo(r['D(t)'] || 0));
+            const traces = [
+              {
+                x: months,
+                y: prodSeries,
+                name: 'P(t) producción',
+                mode: 'lines+markers',
+                hovertemplate: '%{y:.2f} litros<extra></extra>'
+              },
+              {
+                x: months,
+                y: demSeries,
+                name: 'D(t) demanda',
+                mode: 'lines+markers',
+                hovertemplate: '%{y:.2f} litros<extra></extra>'
+              }
+            ];
+            const layout = {
+              title: 'Comportamiento: Producción vs Demanda',
+              xaxis: { title: 'Mes' },
+              yaxis: { title: 'Volumen [litros]', tickformat: '.2f' },
+              legend: { orientation: 'h', y: -0.2 },
+              height: 360
+            };
+            Plotly.newPlot('plot-demand', traces, layout, plotConfig);
+          }
+          if (result.json_tabla_produccion) {
+            const prodRows = result.json_tabla_produccion;
+            if (prodRows && prodRows.length > 0) {
+              const months = prodRows.map(r => r.Mes || r.index || '');
+              const cols = Object.keys(prodRows[0]).filter(k => k !== 'index' && k !== 'Mes');
+              const traces = cols.map(col => ({
+                x: months,
+                y: prodRows.map(r => roundToTwo(r[col] || 0)),
+                name: col,
+                mode: 'lines+markers',
+                hovertemplate: '%{y:.2f} litros<extra></extra>'
+              }));
+              const layout2 = {
+                title: 'Producción mensual por producto',
+                xaxis: { title: 'Mes' },
+                yaxis: { title: 'Volumen [litros]', tickformat: '.2f' },
+                legend: { orientation: 'h' },
+                height: 360
+              };
+              Plotly.newPlot('plot-desag', traces, layout2, plotConfig);
+            }
+          }
+          if (result.json_sim_totales && result.json_sim_totales.length) {
+            const data = result.json_sim_totales;
+            const metricas = data.map(r => r.Metrica);
+            const medias = data.map(r => roundToTwo(r.Media || 0));
+            const errores = data.map(r => roundToTwo(r.IC95_HW || 0));
+            const traceTot = {
+              type: 'bar',
+              x: metricas,
+              y: medias,
+              marker: { color: '#0f62fe' },
+              error_y: { type: 'data', array: errores, visible: true, thickness: 1.5 },
+              hovertemplate: '%{x}: %{y:.2f}<extra></extra>'
+            };
+            const layoutTot = {
+              title: 'Métricas agregadas de la simulación',
+              xaxis: { title: 'Métrica' },
+              yaxis: { title: 'Valor medio', tickformat: '.2f' },
+              height: 360
+            };
+            Plotly.newPlot('plot-sim-totales', [traceTot], layoutTot, plotConfig);
+          }
+          if (result.json_sim_productos && result.json_sim_productos.length) {
+            const dataProd = result.json_sim_productos;
+            const productos = dataProd.map(r => r.Producto);
+            const metricConfigs = [
+              { key: 'Throughput_media', err: 'Throughput_HW', label: 'Throughput (lotes/día)', axis: 'Throughput [lotes/día]' },
+              { key: 'CycleTime_media_min', err: 'CycleTime_HW', label: 'Cycle time (min)', axis: 'Cycle time [min]' },
+              { key: 'WIP_media', err: 'WIP_HW', label: 'WIP (lotes)', axis: 'WIP [lotes]' },
+              { key: 'TaktTime_media_min', err: 'TaktTime_HW', label: 'Takt time (min/lote)', axis: 'Takt time [min/lote]' },
+              { key: 'Entradas_365d_media', err: 'Entradas_365d_HW', label: 'Entradas en 365d (lotes)', axis: 'Entradas [lotes]' }
+            ];
+            const tracesProd = metricConfigs.map((cfg, idx) => ({
+              type: 'bar',
+              x: productos,
+              y: dataProd.map(r => roundToTwo(r[cfg.key] || 0)),
+              error_y: { type: 'data', array: dataProd.map(r => roundToTwo(r[cfg.err] || 0)), visible: true },
+              name: cfg.label,
+              hovertemplate: '%{y:.2f}<extra></extra>',
+              visible: idx === 0
+            }));
+            const buttons = metricConfigs.map((cfg, idx) => ({
+              label: cfg.label,
+              method: 'update',
+              args: [
+                { visible: tracesProd.map((_, i) => i === idx) },
+                { title: `Simulación - ${cfg.label}`, yaxis: { title: cfg.axis, tickformat: '.2f' } }
+              ]
+            }));
+            const layoutProd = {
+              title: `Simulación - ${metricConfigs[0].label}`,
+              xaxis: { title: 'Producto' },
+              yaxis: { title: metricConfigs[0].axis, tickformat: '.2f' },
+              updatemenus: [{
+                x: 0.5,
+                y: 1.25,
+                xanchor: 'center',
+                yanchor: 'top',
+                direction: 'down',
+                showactive: true,
+                buttons
+              }],
+              showlegend: false,
+              height: 360
+            };
+            Plotly.newPlot('plot-sim-productos', tracesProd, layoutProd, plotConfig);
+          }
+          if (result.json_sim_estaciones && result.json_sim_estaciones.length) {
+            const dataEst = result.json_sim_estaciones;
+            const estaciones = dataEst.map(r => r.Estacion);
+            if (estaciones.length) {
+              const utilValues = dataEst.map(r => roundToTwo(r.Utilizacion_media || 0));
+              const utilErrors = dataEst.map(r => roundToTwo(r.Utilizacion_HW || 0));
+              const maxUtil = utilValues.length ? Math.max(...utilValues) : 1;
+              const utilTrace = {
+                type: 'bar',
+                x: estaciones,
+                y: utilValues,
+                error_y: { type: 'data', array: utilErrors, visible: true },
+                marker: { color: '#3d70ff' },
+                hovertemplate: '%{y:.2%}<extra></extra>'
+              };
+              const layoutUtil = {
+                title: 'Simulación - Utilización por estación',
+                xaxis: { title: 'Estación' },
+                yaxis: { title: 'Utilización', tickformat: '.2%', range: [0, Math.min(1, maxUtil + 0.1)] },
+                showlegend: false,
+                height: 360
+              };
+              Plotly.newPlot('plot-sim-estaciones-util', [utilTrace], layoutUtil, plotConfig);
+            }
+            const waitValues = dataEst.map(r => roundToTwo(r.Espera_media_min || 0));
+            const waitErrors = dataEst.map(r => roundToTwo(r.Espera_HW || 0));
+            const waitTrace = {
+              type: 'bar',
+              x: estaciones,
+              y: waitValues,
+              error_y: { type: 'data', array: waitErrors, visible: true },
+              marker: { color: '#ff832b' }
+            };
+            const layoutWait = {
+              title: 'Simulación - Espera media por estación',
+              xaxis: { title: 'Estación' },
+              yaxis: { title: 'Espera [min]' },
+              showlegend: false,
+              height: 360
+            };
+            Plotly.newPlot('plot-sim-estaciones-wait', [waitTrace], layoutWait, plotConfig);
+          }
+        } catch (errplot) {
+          console.warn('Error al renderizar plots interactivos:', errplot);
+        }
+      } catch (err) {
+        resultsEl.innerHTML = `<div class="alert"><strong>Ocurrió un error:</strong> ${err}</div>`;
+      }
+    }
+
+    document.getElementById('run-btn').addEventListener('click', runSimulation);
+  </script>
+</body>
+</html>
