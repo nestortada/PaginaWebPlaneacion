@@ -347,26 +347,29 @@ def desagregado_optimo(
     inv_inicial_j,  # dict {j: inventario inicial por bebida}
     inv_final_j,  # dict {j: inventario final mínimo por bebida (en el último mes)}
     ponderaciones,  # array/Serie de largo J
-    costo_prod=1.0,  # coeficiente para Produccion[i,j] en el objetivo
-    costo_inv=0.25,  # coeficiente para Inventario[i,j] en el objetivo
-    modo_ponderacion="exact"  # "exact" -> Iij[m,j] == wj * I_agregado[m]; "min" -> sum_j Iij == I_agregado[m] y Iij >= wj * I_agregado[m]
+    costo_prod=1.0,  # ya no se usa en el objetivo, se mantiene por compatibilidad
+    costo_inv=0.25,  # idem
+    modo_ponderacion="exact"  # "exact" o "min"
 ):
     orden_meses = [
         "January","February","March","April","May","June",
         "July","August","September","October","November","December"
     ]
     meses = [m for m in orden_meses if m in data.keys()]
-    # Índices de productos 0..J-1
     productos = list(range(len(next(iter(data.values())))))
-    # Pesos por producto w
     w = {j: float(ponderaciones[j]) for j in productos}
 
     # --- Modelo PuLP ---
     if HAS_PULP:
-        mdl = LpProblem("Desagregado", sense=1)
+        from pulp import LpProblem, LpVariable, lpSum, LpStatus, LpMaximize, PULP_CBC_CMD
+
+        mdl = LpProblem("Desagregado", sense=LpMaximize)
         Pij = LpVariable.dicts("Produccion", (meses, productos), lowBound=0, cat="Continuous")
         Iij = LpVariable.dicts("Inventario", (meses, productos), lowBound=0, cat="Continuous")
-        mdl += lpSum(costo_prod * Pij[m][j] + costo_inv * Iij[m][j] for m in meses for j in productos), "Objetivo_Desagregado"
+
+        # Objetivo: maximizar la producción total
+        mdl += lpSum(Pij[m][j] for m in meses for j in productos), "Max_Produccion_Total"
+
         for m_idx, m in enumerate(meses):
             # balance por producto
             for j in productos:
@@ -376,10 +379,12 @@ def desagregado_optimo(
                 else:
                     prev = meses[m_idx - 1]
                     mdl += Iij[m][j] == Iij[prev][j] + Pij[m][j] - demanda_ij, f"Inv_{m}_prod{j}"
+
             # capacidad agregada
             if m not in P_agregado:
                 raise KeyError(f"No encuentro P_agregado para el mes '{m}'. Verifica las claves.")
             mdl += lpSum(Pij[m][j] for j in productos) <= float(P_agregado[m]), f"Capacidad_{m}"
+
             # inventario agregado -> desagregado según modo
             if m not in I_agregado:
                 raise KeyError(f"No encuentro I_agregado para el mes '{m}'. Verifica las claves.")
@@ -393,13 +398,16 @@ def desagregado_optimo(
                     mdl += Iij[m][j] >= w[j] * I_m, f"InvPondMin_{m}_prod{j}"
             else:
                 raise ValueError("modo_ponderacion debe ser 'exact' o 'min'.")
+
         # Inventario final mínimo por producto en el último mes
         if meses:
             mes_final = meses[-1]
             for j in productos:
                 mdl += Iij[mes_final][j] >= float(inv_final_j[j]), f"InvFinal_prod{j}"
+
         mdl.solve(PULP_CBC_CMD(msg=0))
         status = LpStatus.get(mdl.status, str(mdl.status))
+
         filas = []
         for m in meses:
             for j in productos:
@@ -418,19 +426,22 @@ def desagregado_optimo(
     J = len(productos)
     if M == 0 or J == 0:
         return {"status": "Infeasible", "df": pd.DataFrame(), "modelo": None}
-    # variable ordering: for each month i, P[i][j] (j=0..J-1) then I[i][j] (j=0..J-1)
-    nvar = 2 * M * J
+
+    nvar = 2 * M * J  # [P | I] por mes
     c = np.zeros(nvar)
+
+    # Objetivo de maximización con linprog (minimiza c^T x): poner -1 a P para maximizar sum P
     for i, m in enumerate(meses):
         base = i * 2 * J
         for j in productos:
             idxP = base + j
             idxI = base + J + j
-            c[idxP] = costo_prod
-            c[idxI] = costo_inv
-    A_eq = []
-    b_eq = []
-    # inventory balance per product
+            c[idxP] = -1.0   # maximiza producción total
+            c[idxI] =  0.0   # inventario no entra al objetivo
+
+    A_eq, b_eq, A_ub, b_ub = [], [], [], []
+
+    # balance inventario por producto
     for i, m in enumerate(meses):
         base = i * 2 * J
         for j in productos:
@@ -438,7 +449,6 @@ def desagregado_optimo(
             idxI = base + J + j
             row = np.zeros(nvar)
             if i == 0:
-                # I_0_j - P_0_j = inv_inicial_j - demand
                 row[idxI] = 1
                 row[idxP] = -1
                 A_eq.append(row)
@@ -451,34 +461,31 @@ def desagregado_optimo(
                 row[idxP] = -1
                 A_eq.append(row)
                 b_eq.append(-float(data[m][j]))
-    A_ub = []
-    b_ub = []
-    # per-month capacity and aggregated inventory constraints
+
+    # capacidad y restricciones de inventario agregado
     for i, m in enumerate(meses):
         base = i * 2 * J
-        # capacity: sum_j P[i][j] <= P_agregado[m]
+        # capacidad: sum_j P[i][j] <= P_agregado[m]
         row_cap = np.zeros(nvar)
         for j in productos:
             row_cap[base + j] = 1
         A_ub.append(row_cap)
         b_ub.append(float(P_agregado[m]))
-        # inventory aggregated: depending on modo
+
+        # inventario agregado (exact o min)
         I_m = float(I_agregado[m])
         if modo_ponderacion == "exact":
-            # equality constraints I[i][j] == w[j] * I_m
             for j in productos:
                 row = np.zeros(nvar)
                 row[base + J + j] = 1
                 A_eq.append(row)
                 b_eq.append(w[j] * I_m)
         elif modo_ponderacion == "min":
-            # sum_j I[i][j] == I_m
             row_sum = np.zeros(nvar)
             for j in productos:
                 row_sum[base + J + j] = 1
             A_eq.append(row_sum)
             b_eq.append(I_m)
-            # and I[i][j] >= w[j] * I_m -> -I[i][j] <= -w[j]*I_m
             for j in productos:
                 row_min = np.zeros(nvar)
                 row_min[base + J + j] = -1
@@ -486,21 +493,24 @@ def desagregado_optimo(
                 b_ub.append(-w[j] * I_m)
         else:
             raise ValueError("modo_ponderacion debe ser 'exact' o 'min'.")
-    # final inventory minimum per product in last month
+
+    # inventario final mínimo en el último mes
     last_idx = (M - 1) * 2 * J
     for j in productos:
         row = np.zeros(nvar)
-        row[last_idx + J + j] = -1.0
+        row[last_idx + J + j] = -1.0  # I_last_j >= inv_final_j -> -I_last_j <= -inv_final_j
         A_ub.append(row)
         b_ub.append(-float(inv_final_j[j]))
-    # convert to arrays
+
     A_eq = np.array(A_eq) if A_eq else None
     b_eq = np.array(b_eq) if b_eq else None
     A_ub = np.array(A_ub) if A_ub else None
     b_ub = np.array(b_ub) if b_ub else None
     bounds = [(0, None) for _ in range(nvar)]
+
     res = linprog(c, A_ub=A_ub, b_ub=b_ub, A_eq=A_eq, b_eq=b_eq, bounds=bounds, method='highs')
     status = 'Optimal' if res.success else 'Infeasible'
+
     filas = []
     if res.success:
         x = res.x
@@ -520,8 +530,10 @@ def desagregado_optimo(
         for m in meses:
             for j in productos:
                 filas.append({"Mes": m, "Producto": j, "Produccion": None, "Inventario": None, "Demanda": float(data[m][j])})
+
     df = pd.DataFrame(filas)
     return {"status": status, "df": df, "modelo": None}
+
 
 class Simulator:
     """Discrete‑event simulator for the bottling line with four stations.
@@ -988,6 +1000,7 @@ def run_full_process(
     tiempos_procesos: dict,
     unidad: float,
     use_no_consecutive: bool=False,
+    use_safe_stock: bool=False,
     use_smooth: bool=False,
     ct: float=578, ht: float=145, pit: float=1e7,
     crt: float=5931.25, cot: float=5931.25,
@@ -1012,8 +1025,9 @@ def run_full_process(
         Dictionary of process times with keys matching those in the original model.
     unidad : float
         Conversion factor (e.g., litres per unit or seconds per litre).
-    use_no_consecutive, use_smooth : bool
-        Flags to activate optional constraints in the aggregated model.
+    use_no_consecutive, use_safe_stock, use_smooth : bool
+        Flags to activate optional constraints in the aggregated model. The
+        safety stock option keeps inventories proportional to next month's demand.
     ct, ht, pit, crt, cot, cwt, cwt_prima : floats
         Cost coefficients for production, inventory, shortages, labour and capacity adjustments.
     graficar : bool
@@ -1060,7 +1074,7 @@ def run_full_process(
         cwt=cwt, cwt_prima=cwt_prima,
         m=m,
         use_subcontracting=False,
-        use_safety_stock=False,
+        use_safety_stock=use_safe_stock,
         use_fixed_cost_capacity=False,
         use_no_consecutive=use_no_consecutive,
         use_smooth=use_smooth,

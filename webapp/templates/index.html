@@ -166,6 +166,10 @@
           <input id="use_no_consecutive" type="checkbox"/>
         </div>
         <div class="field">
+          <label title="Aplica inventario de seguridad basado en la demanda del mes siguiente">use_safe_stock</label>
+          <input id="use_safe_stock" type="checkbox"/>
+        </div>
+        <div class="field">
           <label title="Usar suavizado en la producción mensual">use_smooth</label>
           <input id="use_smooth" type="checkbox"/>
         </div>
@@ -484,6 +488,7 @@
         tiempos_procesos: gatherTimes(),
         unidad: fallbackNumber(document.getElementById('unidad')),
         use_no_consecutive: document.getElementById('use_no_consecutive').checked,
+        use_safe_stock: document.getElementById('use_safe_stock').checked,
         use_smooth: document.getElementById('use_smooth').checked,
         ct: fallbackNumber(document.getElementById('ct')),
         ht: fallbackNumber(document.getElementById('ht')),
