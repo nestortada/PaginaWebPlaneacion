@@ -7,7 +7,7 @@ simulation workflow defined in the original notebook.  The function is
 parametrised so that the user can easily change key inputs (e.g., demand
 data, inventory proportions, processing times, cost coefficients and
 simulation settings) and obtain aggregated and disaggregated production
-schedules along with discrete‑event simulation metrics.  To verify that
+schedules along with discrete-event simulation metrics.  To verify that
 the function works correctly the defaults in `__main__` reproduce the
 example found in the question.
 
@@ -806,7 +806,15 @@ def compute_ci(values, alpha=0.05):
     hw = z * sd / math.sqrt(n)
     return mean_val, hw
 
-def run_experiment(return_tables=True, make_plots=False, reps=10, verbose=False, service_params=None, schedule_tia=None):
+def run_experiment(
+    return_tables=True,
+    make_plots=False,
+    reps=10,
+    verbose=False,
+    service_params=None,
+    schedule_tia=None,
+    custom_capacities=None
+):
     """Run multiple simulation replications and return summary tables (and optionally plots).
     
     Parameters
@@ -823,12 +831,30 @@ def run_experiment(return_tables=True, make_plots=False, reps=10, verbose=False,
         Parameters governing service time distributions (see Simulator).
     schedule_tia : list of lists
         Time between arrivals schedule: schedule_tia[p][m] gives the interarrival
-        time for product p during month m (0–11).  This is required to run the
+        time for product p during month m (0-11).  This is required to run the
         simulator and to dimension stations.
+    custom_capacities : list of float or int, optional
+        Capacities to force for each station [E1, E2, E3, E4]. When provided,
+        the simulation uses these values but still reports the ideal (dimensioned)
+        capacities for referencia.
     """
     # determine station capacities
     recommended = dimension_stations(service_params=service_params, schedule_tia=schedule_tia)
-    results = [Simulator(recommended, service_params=service_params).run(seed=2000 + r, schedule_tia=schedule_tia) for r in range(reps)]
+    capacities_to_use = recommended
+    if custom_capacities is not None:
+        if len(custom_capacities) != len(recommended):
+            raise ValueError("Se esperan 4 capacidades para las estaciones.")
+        try:
+            capacities_to_use = [max(1, int(round(float(c)))) for c in custom_capacities]
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Capacidades no válidas, deben ser numéricas.") from exc
+    results = [
+        Simulator(capacities_to_use, service_params=service_params).run(
+            seed=2000 + r,
+            schedule_tia=schedule_tia
+        )
+        for r in range(reps)
+    ]
     # aggregate totals across replications
     total_tp   = [m['total_throughput_day'] for m in results]
     total_ct   = [m['total_cycle_mean']     for m in results]
@@ -890,7 +916,8 @@ def run_experiment(return_tables=True, make_plots=False, reps=10, verbose=False,
         w_m, w_hw = compute_ci(wait)
         station_rows.append({
             "Estación"              : station_names[st],
-            "Capacidad"             : recommended[st],
+            "Capacidad_ideal"       : recommended[st],
+            "Capacidad"             : capacities_to_use[st],
             "Utilización_media"     : u_m,
             "Utilización_HW"        : u_hw,
             "Espera_media_min"      : w_m,
@@ -903,14 +930,21 @@ def run_experiment(return_tables=True, make_plots=False, reps=10, verbose=False,
     out = {
         "df_totales": df_totales,
         "df_productos": df_productos,
-        "df_estaciones": df_estaciones
+        "df_estaciones": df_estaciones,
+        "capacities": {
+            "ideal": recommended,
+            "used": capacities_to_use
+        }
     }
     # optional plots
     if make_plots:
         import matplotlib.pyplot as plt
+        from matplotlib.ticker import FormatStrFormatter
         figs = {}
+        decimal_formatter = FormatStrFormatter('%.2f')
         # throughput per product
         fig1, ax1 = plt.subplots()
+        ax1.yaxis.set_major_formatter(decimal_formatter)
         ax1.bar(df_productos["Producto"], df_productos["Throughput_media"], yerr=df_productos["Throughput_HW"], capsize=4)
         ax1.set_ylabel("Throughput [lotes/día]")
         ax1.set_title("Throughput por producto (media ± IC95 HW)")
@@ -919,6 +953,7 @@ def run_experiment(return_tables=True, make_plots=False, reps=10, verbose=False,
         figs["fig_throughput_prod"] = fig1
         # arrivals per product
         fig2, ax2 = plt.subplots()
+        ax2.yaxis.set_major_formatter(decimal_formatter)
         ax2.bar(df_productos["Producto"], df_productos["Entradas_365d_media"], yerr=df_productos["Entradas_365d_HW"], capsize=4)
         ax2.set_ylabel("Entradas en 365 días [lotes]")
         ax2.set_title("Entradas por producto (media ± IC95 HW)")
@@ -927,6 +962,7 @@ def run_experiment(return_tables=True, make_plots=False, reps=10, verbose=False,
         figs["fig_arrivals_prod"] = fig2
         # utilisation per station
         fig3, ax3 = plt.subplots()
+        ax3.yaxis.set_major_formatter(decimal_formatter)
         ax3.bar(df_estaciones["Estación"], df_estaciones["Utilización_media"], yerr=df_estaciones["Utilización_HW"], capsize=4)
         ax3.set_ylabel("Utilización (fracción)")
         ax3.set_title("Utilización por estación (media ± IC95 HW)")
@@ -935,6 +971,7 @@ def run_experiment(return_tables=True, make_plots=False, reps=10, verbose=False,
         figs["fig_util_station"] = fig3
         # wait per station
         fig4, ax4 = plt.subplots()
+        ax4.yaxis.set_major_formatter(decimal_formatter)
         ax4.bar(df_estaciones["Estación"], df_estaciones["Espera_media_min"], yerr=df_estaciones["Espera_HW"], capsize=4)
         ax4.set_ylabel("Espera media [min]")
         ax4.set_title("Espera por estación (media ± IC95 HW)")
@@ -958,6 +995,7 @@ def run_full_process(
     graficar: bool=True,
     costo_prod: float=1.0, costo_inv: float=0.25,
     return_tables: bool=True, make_plots: bool=True,
+    capacidades_override=None,
     reps: int=10, verbose: bool=True
 ):
     """Run the entire workflow: optimisation (aggregated & disaggregated) and simulation.
@@ -982,6 +1020,8 @@ def run_full_process(
         Whether to generate a production/demand plot in the aggregated model (saved as file).
     costo_prod, costo_inv : float
         Cost coefficients for production and inventory in the disaggregated model.
+    capacidades_override : list, optional
+        Capacidades personalizadas para las estaciones en la simulación.
     return_tables, make_plots, reps, verbose : control flags for the simulation experiment.
 
     Returns
@@ -1099,13 +1139,23 @@ def run_full_process(
         return tia
     schedule_tia = compute_tia(diccionario)
     # --- Step 7: Run simulation experiment ---
+    capacidades_list = None
+    if capacidades_override is not None:
+        try:
+            capacidades_list = [float(x) for x in capacidades_override]
+        except (TypeError, ValueError):
+            capacidades_list = None
+        else:
+            if len(capacidades_list) != 4:
+                capacidades_list = None
     sim_res = run_experiment(
         return_tables=return_tables,
         make_plots=make_plots,
         reps=reps,
         verbose=verbose,
         service_params=tiempos_procesos,
-        schedule_tia=schedule_tia
+        schedule_tia=schedule_tia,
+        custom_capacities=capacidades_list
     )
     # assemble output
     out = {
@@ -1116,7 +1166,8 @@ def run_full_process(
         "diccionario": diccionario,
         "sim_totales": sim_res.get("df_totales"),
         "sim_productos": sim_res.get("df_productos"),
-        "sim_estaciones": sim_res.get("df_estaciones")
+        "sim_estaciones": sim_res.get("df_estaciones"),
+        "capacities": sim_res.get("capacities")
     }
     if make_plots and "figs" in sim_res:
         out["figs"] = sim_res["figs"]

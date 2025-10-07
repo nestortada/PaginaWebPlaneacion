@@ -10,6 +10,7 @@ rendered as PNG images encoded in base64.
 
 import base64
 import io
+from numbers import Number
 from fastapi import FastAPI, Request, Body
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -58,6 +59,22 @@ MONTH_ORDER = [
     "July","August","September","October","November","December"
 ]
 
+def round_dataframe(df, decimals: int = 2):
+    """Return a rounded copy of the DataFrame for consistent presentation."""
+    if df is None:
+        return None
+    df_copy = df.copy()
+    if hasattr(df_copy, "select_dtypes"):
+        numeric_cols = df_copy.select_dtypes(include="number").columns
+        if len(numeric_cols):
+            df_copy[numeric_cols] = df_copy[numeric_cols].round(decimals)
+    return df_copy
+
+
+def round_value(value, decimals: int = 2):
+    """Round numeric scalars, leave other values untouched."""
+    return round(float(value), decimals) if isinstance(value, Number) else value
+
 @app.get("/", response_class=HTMLResponse)
 async def read_index(request: Request):
     """Serve the main page with default data embedded."""
@@ -99,6 +116,9 @@ async def run_simulation(payload: dict = Body(...)):
         make_plots    = bool(payload.get("make_plots", True))
         reps = int(payload.get("reps", 10))
         verbose = bool(payload.get("verbose", True))
+        capacidades_override = payload.get("capacidades_override")
+        if not isinstance(capacidades_override, list):
+            capacidades_override = None
 
         # Coerce month keys to strings just in case
         data = {str(k): [float(x) for x in v] for k, v in data.items()}
@@ -124,6 +144,7 @@ async def run_simulation(payload: dict = Body(...)):
             costo_inv=costo_inv,
             return_tables=return_tables,
             make_plots=make_plots,
+            capacidades_override=capacidades_override,
             reps=reps,
             verbose=verbose
         )
@@ -135,14 +156,21 @@ async def run_simulation(payload: dict = Body(...)):
             classes = "table table-sm table-bordered"
             if extra_classes:
                 classes = f"{classes} {extra_classes}"
-            return df.to_html(classes=classes, index=False, escape=False)
+            df_fmt = round_dataframe(df)
+            return df_fmt.to_html(
+                classes=classes,
+                index=False,
+                escape=False,
+                float_format=lambda x: f"{x:.2f}"
+            )
 
-        def df_to_json(df, *, reset_index: bool = True, rename_map: dict | None = None):
+        def df_to_json(df, *, reset_index: bool = True, rename_map: dict | None = None, decimals: int = 2):
             if df is None:
                 return None
             df_copy = df.reset_index() if reset_index else df.copy()
             if rename_map:
                 df_copy = df_copy.rename(columns=rename_map)
+            df_copy = round_dataframe(df_copy, decimals=decimals)
             return df_copy.to_dict(orient='records')
 
         desagg_df = result['disagg']['df']
@@ -155,6 +183,9 @@ async def run_simulation(payload: dict = Body(...)):
         sim_totales_df = result['sim_totales']
         sim_productos_df = result['sim_productos']
         sim_estaciones_df = result['sim_estaciones']
+        capacities_info = result.get('capacities') or {}
+        agg_status = result.get('agg', {}).get('status')
+        agg_z = round_value(result.get('agg', {}).get('z'))
 
         tabla_desag = df_to_html(desagg_df)
         tabla_prod  = df_to_html(tabla_prod_df) if tabla_prod_df is not None else ""
@@ -177,7 +208,7 @@ async def run_simulation(payload: dict = Body(...)):
         if sim_estaciones_df is not None:
             rename_estaciones = dict(zip(
                 sim_estaciones_df.columns,
-                ["Estacion", "Capacidad", "Utilizacion_media", "Utilizacion_HW", "Espera_media_min", "Espera_HW"]
+                ["Estacion", "Capacidad_ideal", "Capacidad", "Utilizacion_media", "Utilizacion_HW", "Espera_media_min", "Espera_HW"]
             ))
             json_sim_estaciones = df_to_json(sim_estaciones_df.copy(), reset_index=False, rename_map=rename_estaciones)
 
@@ -193,14 +224,15 @@ async def run_simulation(payload: dict = Body(...)):
 
         # Build JSON response
         return JSONResponse({
-            "status": result['agg']['status'],
-            "z": result['agg']['z'],
+            "status": agg_status,
+            "z": agg_z,
             "tabla_desag": tabla_desag,
             "tabla_prod": tabla_prod,
             "tabla_inv": tabla_inv,
             "df_totales": df_totales,
             "df_productos": df_productos,
             "df_estaciones": df_estaciones,
+            "capacities": capacities_info,
             "figures": figs_base64,
             # JSON data for interactive plots
             "json_agg_table": json_agg_table,

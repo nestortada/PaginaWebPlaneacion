@@ -210,6 +210,7 @@
     document.querySelector('.container').insertAdjacentHTML('afterbegin', fileUploaderHtml);
 
     let lastResult = null;
+    let lastPayload = null;
 
     function fallbackNumber(input) {
       const raw = (input.value || '').trim();
@@ -217,6 +218,24 @@
       const n = Number(raw);
       return Number.isFinite(n) ? n : parseFloat(input.dataset.default);
     }
+    function roundToTwo(value) {
+      const num = Number(value);
+      if (!Number.isFinite(num)) return 0;
+      return Math.round((num + Number.EPSILON) * 100) / 100;
+    }
+
+    function formatNumber(value, options = {}) {
+      const num = Number(value);
+      if (!Number.isFinite(num)) {
+        return value === 0 ? "0,00" : (value ?? "");
+      }
+      const formatter = new Intl.NumberFormat("es-ES", Object.assign({
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }, options));
+      return formatter.format(num);
+    }
+
 
     // Populate table from parsed 2D array of numbers
     function populateDemandTableFromArray(arr) {
@@ -335,7 +354,7 @@
           appendSheet(wb, lastResult.json_tabla_inventario, 'Inventario');
           appendSheet(wb, lastResult.json_sim_totales, 'Sim_Totales', ['Metrica','Media','IC95_HW']);
           appendSheet(wb, lastResult.json_sim_productos, 'Sim_Productos');
-          appendSheet(wb, lastResult.json_sim_estaciones, 'Sim_Estaciones');
+          appendSheet(wb, lastResult.json_sim_estaciones, 'Sim_Estaciones', ['Estacion','Capacidad_ideal','Capacidad','Utilizacion_media','Utilizacion_HW','Espera_media_min','Espera_HW']);
           if (!wb.SheetNames.length) {
             alert('No hay datos para exportar.');
             return;
@@ -347,6 +366,115 @@
         }
       };
     }
+
+
+    function renderCapacityTable(result) {
+      const container = document.getElementById('capacity-table-container');
+      if (!container) return;
+      const data = result.json_sim_estaciones;
+      if (!data || !data.length) {
+        container.innerHTML = result.df_estaciones || '<div class="muted">No disponible.</div>';
+        return;
+      }
+      const rowsHtml = data.map((row, idx) => {
+        const idealStr = formatNumber(row.Capacidad_ideal);
+        const usedNum = Number(row.Capacidad ?? row.Capacidad_ideal ?? '');
+        const usedStr = Number.isFinite(usedNum) ? usedNum.toFixed(2) : '';
+        const utilMedia = formatNumber(row.Utilizacion_media);
+        const utilHw = formatNumber(row.Utilizacion_HW);
+        const esperaMedia = formatNumber(row.Espera_media_min);
+        const esperaHw = formatNumber(row.Espera_HW);
+        return `
+          <tr>
+            <td>${row.Estacion}</td>
+            <td>${idealStr}</td>
+            <td>
+              <input type="number" class="cap-input" data-index="${idx}" min="0" step="0.01" value="${usedStr}" aria-label="Capacidad ajustada para ${row.Estacion}" />
+            </td>
+            <td>${utilMedia}</td>
+            <td>${utilHw}</td>
+            <td>${esperaMedia}</td>
+            <td>${esperaHw}</td>
+          </tr>`;
+      }).join('');
+      container.innerHTML = `
+        <table class="table table-sm table-bordered">
+          <thead>
+            <tr>
+              <th>Estación</th>
+              <th>Capacidad ideal [unidades]</th>
+              <th>Capacidad ajustada [unidades]</th>
+              <th>Utilización media [fracción]</th>
+              <th>IC95 Utilización [fracción]</th>
+              <th>Espera media [min]</th>
+              <th>IC95 Espera [min]</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>`;
+      const statusEl = document.getElementById('recalc-status');
+      if (statusEl) statusEl.textContent = '';
+    }
+
+    function attachRecalcHandler() {
+      const btn = document.getElementById('recalc-btn');
+      if (!btn) return;
+      btn.onclick = recalcMetrics;
+    }
+
+    async function recalcMetrics() {
+      if (!lastResult || !lastPayload) {
+        alert('Primero ejecuta la planeación para obtener resultados.');
+        return;
+      }
+      const inputs = Array.from(document.querySelectorAll('#capacity-table-container input.cap-input'));
+      if (!inputs.length) return;
+      const statusEl = document.getElementById('recalc-status');
+      const capacities = inputs.map(inp => Number(inp.value));
+      if (capacities.some(val => !Number.isFinite(val) || val <= 0)) {
+        if (statusEl) statusEl.textContent = 'Revisa las capacidades: deben ser números positivos.';
+        return;
+      }
+      if (statusEl) statusEl.textContent = 'Recalculando métricas...';
+      const btn = document.getElementById('recalc-btn');
+      if (btn) btn.disabled = true;
+      const payload = JSON.parse(JSON.stringify(lastPayload));
+      payload.capacidades_override = capacities;
+      payload.make_plots = false;
+      payload.return_tables = true;
+      try {
+        const res = await fetch('/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if (!res.ok || result.error) {
+          throw new Error(result.error || 'Error desconocido');
+        }
+        lastResult = result;
+        lastPayload = JSON.parse(JSON.stringify(payload));
+        const totalesEl = document.getElementById('sim-table-totales');
+        if (totalesEl) {
+          totalesEl.innerHTML = result.df_totales || '<div class="muted">No disponible.</div>';
+        }
+        const productosEl = document.getElementById('sim-table-productos');
+        if (productosEl) {
+          productosEl.innerHTML = result.df_productos || '<div class="muted">No disponible.</div>';
+        }
+        renderCapacityTable(result);
+        attachDownloadHandler();
+        attachRecalcHandler();
+        if (statusEl) statusEl.textContent = 'Métricas actualizadas.';
+      } catch (err) {
+        console.error(err);
+        if (statusEl) statusEl.textContent = `Error al recalcular: ${err.message}`;
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+
 
     async function runSimulation() {
       const payload = {
@@ -376,6 +504,7 @@
       const resultsEl = document.getElementById('results');
       resultsEl.innerHTML = '<div class="muted">Ejecutando… esto puede tardar unos segundos ⏳</div>';
       lastResult = null;
+      lastPayload = null;
 
       try {
         const res = await fetch('/run', {
@@ -393,16 +522,16 @@
         // Build basic info area
         const noData = '<div class="muted">No disponible.</div>';
         let html = '';
-        html += `<div class="ok"><strong>Estado del modelo agregado:</strong> ${result.status} &nbsp; | &nbsp; <strong>Valor objetivo:</strong> ${result.z}</div>`;
+        html += `<div class="ok"><strong>Estado del modelo agregado:</strong> ${result.status} &nbsp; | &nbsp; <strong>Valor objetivo:</strong> ${formatNumber(result.z)}</div>`;
         html += `<div class="row-actions" style="margin-top:12px;"><button type="button" id="download-xlsx">Descargar Excel detallado</button></div>`;
 
-        html += `<h3 class="section-title">Tabla de Demanda Planificada (mensual)</h3>`;
+        html += `<h3 class="section-title">Tabla de Demanda Planificada (mensual, litros)</h3>`;
         html += `<div id="agg-table-area" class="table-wrap">`;
         if (result.json_agg_table) {
           const rows = result.json_agg_table;
-          html += '<table class="table table-sm table-bordered"><thead><tr><th>Mes</th><th>P(t)</th><th>I(t)</th><th>S(t)</th><th>L(RT)</th><th>NI(t)</th><th>D(t)</th></tr></thead><tbody>';
+          html += '<table class="table table-sm table-bordered"><thead><tr><th>Mes</th><th>P(t) [litros]</th><th>I(t) [litros]</th><th>S(t) [litros]</th><th>L(RT) [litros]</th><th>NI(t) [litros]</th><th>D(t) [litros]</th></tr></thead><tbody>';
           for (const r of rows) {
-            html += `<tr><td>${r.Mes}</td><td>${r['P(t)']}</td><td>${r['I(t)']}</td><td>${r['S(t)']}</td><td>${r['L(RT)']}</td><td>${r['NI(t)']}</td><td>${r['D(t)']}</td></tr>`;
+            html += `<tr><td>${r.Mes}</td><td>${formatNumber(r['P(t)'])}</td><td>${formatNumber(r['I(t)'])}</td><td>${formatNumber(r['S(t)'])}</td><td>${formatNumber(r['L(RT)'])}</td><td>${formatNumber(r['NI(t)'])}</td><td>${formatNumber(r['D(t)'])}</td></tr>`;
           }
           html += '</tbody></table>';
         } else {
@@ -410,34 +539,37 @@
         }
         html += `</div>`;
 
-        html += `<h3 class="section-title">Gráfico: Demanda planificada vs Producción (interactivo)</h3>`;
+        html += `<h3 class="section-title">Gráfico: Demanda planificada vs Producción (interactivo, litros)</h3>`;
         html += `<div class="chart-card"><div id="plot-demand"></div></div>`;
-        html += `<h3 class="section-title">Gráfico: Desagregación por producto (interactivo)</h3>`;
+        html += `<h3 class="section-title">Gráfico: Desagregación por producto (interactivo, litros)</h3>`;
         html += `<div class="chart-card"><div id="plot-desag"></div></div>`;
 
-        html += `<h3 class="section-title">Tabla de producción mensual por producto</h3>`;
+        html += `<h3 class="section-title">Tabla de producción mensual por producto (litros)</h3>`;
         html += `<div class="table-wrap">${result.tabla_prod || noData}</div>`;
-        html += `<h3 class="section-title">Tabla de inventario mensual por producto</h3>`;
+        html += `<h3 class="section-title">Tabla de inventario mensual por producto (litros)</h3>`;
         html += `<div class="table-wrap">${result.tabla_inv || noData}</div>`;
 
-        html += `<h3 class="section-title">Simulación - Métricas Totales</h3>`;
+        html += `<h3 class="section-title">Simulación - Métricas Totales (ver unidades específicas)</h3>`;
         html += `<div class="chart-card"><div id="plot-sim-totales"></div></div>`;
-        html += `<h3 class="section-title">Simulación - Métricas por producto</h3>`;
+        html += `<h3 class="section-title">Simulación - Métricas por producto (ver unidades específicas)</h3>`;
         html += `<div class="chart-card"><div id="plot-sim-productos"></div></div>`;
-        html += `<h3 class="section-title">Simulación - Métricas por estación</h3>`;
+        html += `<h3 class="section-title">Simulación - Métricas por estación (ver unidades específicas)</h3>`;
         html += `<div class="chart-card"><div id="plot-sim-estaciones-util"></div></div>`;
         html += `<div class="chart-card"><div id="plot-sim-estaciones-wait"></div></div>`;
 
-        html += `<h3 class="section-title">Tablas de la simulación</h3>`;
+        html += `<h3 class="section-title">Tablas de la simulación (métricas)</h3>`;
         html += `<div class="sim-section">`;
-        html += `<div class="sim-table">${result.df_totales || noData}</div>`;
-        html += `<div class="sim-table">${result.df_productos || noData}</div>`;
-        html += `<div class="sim-table">${result.df_estaciones || noData}</div>`;
+        html += `<div class="sim-table" id="sim-table-totales">${result.df_totales || noData}</div>`;
+        html += `<div class="sim-table" id="sim-table-productos">${result.df_productos || noData}</div>`;
+        html += `<div class="sim-table" id="sim-table-capacidades"><div id="capacity-table-container"></div><div class="row-actions" style="justify-content:flex-start;margin-top:12px;"><button type="button" id="recalc-btn">Recalcular métricas</button></div><div class="muted" id="recalc-status" style="margin-top:6px;"></div></div>`;
         html += `</div>`;
 
         resultsEl.innerHTML = html;
         lastResult = result;
+        lastPayload = JSON.parse(JSON.stringify(payload));
+        renderCapacityTable(result);
         attachDownloadHandler();
+        attachRecalcHandler();
 
         // Render interactive plots if JSON data present
         try {
@@ -445,16 +577,28 @@
           if (result.json_agg_table && result.json_agg_table.length) {
             const agg = result.json_agg_table;
             const months = agg.map(r => r.Mes);
-            const prodSeries = agg.map(r => Number(r['P(t)'] || 0));
-            const demSeries = agg.map(r => Number(r['D(t)'] || 0));
+            const prodSeries = agg.map(r => roundToTwo(r['P(t)'] || 0));
+            const demSeries = agg.map(r => roundToTwo(r['D(t)'] || 0));
             const traces = [
-              { x: months, y: prodSeries, name: 'P(t) producción', mode: 'lines+markers' },
-              { x: months, y: demSeries, name: 'D(t) demanda', mode: 'lines+markers' }
+              {
+                x: months,
+                y: prodSeries,
+                name: 'P(t) producción',
+                mode: 'lines+markers',
+                hovertemplate: '%{y:.2f} litros<extra></extra>'
+              },
+              {
+                x: months,
+                y: demSeries,
+                name: 'D(t) demanda',
+                mode: 'lines+markers',
+                hovertemplate: '%{y:.2f} litros<extra></extra>'
+              }
             ];
             const layout = {
               title: 'Comportamiento: Producción vs Demanda',
               xaxis: { title: 'Mes' },
-              yaxis: { title: 'Unidades' },
+              yaxis: { title: 'Volumen [litros]', tickformat: '.2f' },
               legend: { orientation: 'h', y: -0.2 },
               height: 360
             };
@@ -467,14 +611,15 @@
               const cols = Object.keys(prodRows[0]).filter(k => k !== 'index' && k !== 'Mes');
               const traces = cols.map(col => ({
                 x: months,
-                y: prodRows.map(r => Number(r[col] || 0)),
+                y: prodRows.map(r => roundToTwo(r[col] || 0)),
                 name: col,
-                mode: 'lines+markers'
+                mode: 'lines+markers',
+                hovertemplate: '%{y:.2f} litros<extra></extra>'
               }));
               const layout2 = {
                 title: 'Producción mensual por producto',
                 xaxis: { title: 'Mes' },
-                yaxis: { title: 'Litros' },
+                yaxis: { title: 'Volumen [litros]', tickformat: '.2f' },
                 legend: { orientation: 'h' },
                 height: 360
               };
@@ -484,19 +629,20 @@
           if (result.json_sim_totales && result.json_sim_totales.length) {
             const data = result.json_sim_totales;
             const metricas = data.map(r => r.Metrica);
-            const medias = data.map(r => Number(r.Media || 0));
-            const errores = data.map(r => Number(r.IC95_HW || 0));
+            const medias = data.map(r => roundToTwo(r.Media || 0));
+            const errores = data.map(r => roundToTwo(r.IC95_HW || 0));
             const traceTot = {
               type: 'bar',
               x: metricas,
               y: medias,
               marker: { color: '#0f62fe' },
-              error_y: { type: 'data', array: errores, visible: true, thickness: 1.5 }
+              error_y: { type: 'data', array: errores, visible: true, thickness: 1.5 },
+              hovertemplate: '%{x}: %{y:.2f}<extra></extra>'
             };
             const layoutTot = {
               title: 'Métricas agregadas de la simulación',
               xaxis: { title: 'Métrica' },
-              yaxis: { title: 'Valor medio' },
+              yaxis: { title: 'Valor medio', tickformat: '.2f' },
               height: 360
             };
             Plotly.newPlot('plot-sim-totales', [traceTot], layoutTot, plotConfig);
@@ -514,9 +660,10 @@
             const tracesProd = metricConfigs.map((cfg, idx) => ({
               type: 'bar',
               x: productos,
-              y: dataProd.map(r => Number(r[cfg.key] || 0)),
-              error_y: { type: 'data', array: dataProd.map(r => Number(r[cfg.err] || 0)), visible: true },
+              y: dataProd.map(r => roundToTwo(r[cfg.key] || 0)),
+              error_y: { type: 'data', array: dataProd.map(r => roundToTwo(r[cfg.err] || 0)), visible: true },
               name: cfg.label,
+              hovertemplate: '%{y:.2f}<extra></extra>',
               visible: idx === 0
             }));
             const buttons = metricConfigs.map((cfg, idx) => ({
@@ -524,13 +671,13 @@
               method: 'update',
               args: [
                 { visible: tracesProd.map((_, i) => i === idx) },
-                { title: `Simulación - ${cfg.label}`, yaxis: { title: cfg.axis } }
+                { title: `Simulación - ${cfg.label}`, yaxis: { title: cfg.axis, tickformat: '.2f' } }
               ]
             }));
             const layoutProd = {
               title: `Simulación - ${metricConfigs[0].label}`,
               xaxis: { title: 'Producto' },
-              yaxis: { title: metricConfigs[0].axis },
+              yaxis: { title: metricConfigs[0].axis, tickformat: '.2f' },
               updatemenus: [{
                 x: 0.5,
                 y: 1.25,
@@ -549,27 +696,28 @@
             const dataEst = result.json_sim_estaciones;
             const estaciones = dataEst.map(r => r.Estacion);
             if (estaciones.length) {
-              const utilValues = dataEst.map(r => Number(r.Utilizacion_media || 0));
-              const utilErrors = dataEst.map(r => Number(r.Utilizacion_HW || 0));
+              const utilValues = dataEst.map(r => roundToTwo(r.Utilizacion_media || 0));
+              const utilErrors = dataEst.map(r => roundToTwo(r.Utilizacion_HW || 0));
               const maxUtil = utilValues.length ? Math.max(...utilValues) : 1;
               const utilTrace = {
                 type: 'bar',
                 x: estaciones,
                 y: utilValues,
                 error_y: { type: 'data', array: utilErrors, visible: true },
-                marker: { color: '#3d70ff' }
+                marker: { color: '#3d70ff' },
+                hovertemplate: '%{y:.2%}<extra></extra>'
               };
               const layoutUtil = {
                 title: 'Simulación - Utilización por estación',
                 xaxis: { title: 'Estación' },
-                yaxis: { title: 'Utilización', tickformat: '.0%', range: [0, Math.min(1, maxUtil + 0.1)] },
+                yaxis: { title: 'Utilización', tickformat: '.2%', range: [0, Math.min(1, maxUtil + 0.1)] },
                 showlegend: false,
                 height: 360
               };
               Plotly.newPlot('plot-sim-estaciones-util', [utilTrace], layoutUtil, plotConfig);
             }
-            const waitValues = dataEst.map(r => Number(r.Espera_media_min || 0));
-            const waitErrors = dataEst.map(r => Number(r.Espera_HW || 0));
+            const waitValues = dataEst.map(r => roundToTwo(r.Espera_media_min || 0));
+            const waitErrors = dataEst.map(r => roundToTwo(r.Espera_HW || 0));
             const waitTrace = {
               type: 'bar',
               x: estaciones,
