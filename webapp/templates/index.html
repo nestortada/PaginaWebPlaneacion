@@ -24,7 +24,13 @@
     button { padding:10px 16px; border:none; border-radius:10px; background:#0f62fe; color:white; font-weight:600; cursor:pointer; }
     button:hover { background:#095ad8; }
     .results-section { margin-top: 24px; }
-    .section-title { margin: 18px 0 8px; font-size: 18px; }
+    .section-title { margin: 28px 0 12px; font-size: 18px; }
+    .table-wrap { overflow-x: auto; margin-bottom: 24px; }
+    .chart-card { background: var(--card); border:1px solid var(--border); border-radius:12px; padding:12px; margin-bottom:28px; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+    .chart-card > div { width:100%; height:360px; }
+    .sim-section { margin-bottom: 12px; }
+    .sim-table { margin-bottom: 28px; }
+    .sim-table:last-child { margin-bottom: 0; }
     .figure-container img { max-width: 100%; height: auto; margin: 8px 0 16px; border-radius:10px; border:1px solid var(--border); }
     .alert { padding:10px 12px; border-radius:8px; border:1px solid #f5c2c7; background:#fff2f3; color:#842029; }
     .ok { padding:10px 12px; border-radius:8px; border:1px solid #cfe8cf; background:#f4fff4; color:#164b16; }
@@ -188,13 +194,83 @@
     <div id="results" class="results-section"></div>
   </div>
 
+  <!-- Load SheetJS (for Excel parsing) and Plotly (for interactive charts) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.25.2.min.js"></script>
+
   <script>
+    // Add file input UI
+    const fileUploaderHtml = `
+      <div class="card">
+        <h2>Subir archivo Excel con demanda mensual</h2>
+        <input id="excel-file" type="file" accept=".xlsx,.xls" />
+        <div class="muted">Formato esperado: 12 filas (meses) y 5 columnas (productos) o una hoja con encabezados que incluyan los meses.</div>
+      </div>
+    `;
+    document.querySelector('.container').insertAdjacentHTML('afterbegin', fileUploaderHtml);
+
+    let lastResult = null;
+
     function fallbackNumber(input) {
       const raw = (input.value || '').trim();
       if (raw === '') return parseFloat(input.dataset.default);
       const n = Number(raw);
       return Number.isFinite(n) ? n : parseFloat(input.dataset.default);
     }
+
+    // Populate table from parsed 2D array of numbers
+    function populateDemandTableFromArray(arr) {
+      // arr expected as array of 12 rows with 5 numbers each
+      const tbody = document.querySelector('#data-table tbody');
+      const rows = tbody.querySelectorAll('tr');
+      rows.forEach((row, i) => {
+        if (!arr[i]) return;
+        const inputs = row.querySelectorAll('input');
+        inputs.forEach((inp, j) => {
+          if (typeof arr[i][j] !== 'undefined' && arr[i][j] !== null && !Number.isNaN(Number(arr[i][j]))) {
+            inp.value = Number(arr[i][j]);
+          }
+        });
+      });
+    }
+
+    // Handle Excel upload
+    document.addEventListener('change', (ev) => {
+      if (ev.target && ev.target.id === 'excel-file') {
+        const f = ev.target.files[0];
+        if (!f) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, {type: 'array'});
+          // try first sheet
+          const wsname = workbook.SheetNames[0];
+          const ws = workbook.Sheets[wsname];
+          const json = XLSX.utils.sheet_to_json(ws, {header:1, raw:true});
+          // try to extract first 12 rows with at least 5 numbers
+          const parsed = [];
+          for (let r=0; r<json.length && parsed.length<12; r++) {
+            const row = json[r];
+            // filter out rows that are empty
+            if (!row || row.length === 0) continue;
+            // try to find numbers in the row
+            const nums = row.slice(0,5).map(x => {
+              const n = Number(x);
+              return Number.isFinite(n) ? n : null;
+            });
+            // only accept rows with at least one number
+            if (nums.some(v => v !== null)) parsed.push(nums.map(v => v===null?0:v));
+          }
+          if (parsed.length === 0) {
+            alert('No se pudieron leer filas numéricas del archivo. Asegúrese de subir una hoja con valores numéricos.');
+            return;
+          }
+          // if less than 12 rows, warn but still populate top rows
+          populateDemandTableFromArray(parsed);
+        };
+        reader.readAsArrayBuffer(f);
+      }
+    });
 
     function gatherData() {
       const data = {};
@@ -220,6 +296,56 @@
         times[key] = val === '' ? parseFloat(input.dataset.default) : Number(val);
       });
       return times;
+    }
+
+    function appendSheet(workbook, records, sheetName, order) {
+      if (!records || !records.length) return;
+      const headerSet = {};
+      records.forEach(row => {
+        Object.keys(row || {}).forEach(key => {
+          if (!(key in headerSet)) headerSet[key] = true;
+        });
+      });
+      const headers = (order && order.length) ? order : Object.keys(headerSet);
+      if (!headers.length) return;
+      const normalized = records.map(row => {
+        const out = {};
+        headers.forEach(h => {
+          out[h] = row ? row[h] : null;
+        });
+        return out;
+      });
+      const ws = XLSX.utils.json_to_sheet(normalized, { header: headers });
+      XLSX.utils.book_append_sheet(workbook, ws, sheetName);
+    }
+
+    function attachDownloadHandler() {
+      const btn = document.getElementById('download-xlsx');
+      if (!btn) return;
+      btn.onclick = () => {
+        if (!lastResult) {
+          alert('Primero ejecuta la planeación para generar datos.');
+          return;
+        }
+        try {
+          const wb = XLSX.utils.book_new();
+          appendSheet(wb, lastResult.json_agg_table, 'Agregado', ['Mes','P(t)','I(t)','S(t)','L(RT)','NI(t)','D(t)']);
+          appendSheet(wb, lastResult.json_disagg_table, 'Desagregado');
+          appendSheet(wb, lastResult.json_tabla_produccion, 'Produccion');
+          appendSheet(wb, lastResult.json_tabla_inventario, 'Inventario');
+          appendSheet(wb, lastResult.json_sim_totales, 'Sim_Totales', ['Metrica','Media','IC95_HW']);
+          appendSheet(wb, lastResult.json_sim_productos, 'Sim_Productos');
+          appendSheet(wb, lastResult.json_sim_estaciones, 'Sim_Estaciones');
+          if (!wb.SheetNames.length) {
+            alert('No hay datos para exportar.');
+            return;
+          }
+          XLSX.writeFile(wb, 'planeacion_detallada.xlsx');
+        } catch (err) {
+          console.error('Error al generar el Excel:', err);
+          alert('No se pudo generar el archivo Excel.');
+        }
+      };
     }
 
     async function runSimulation() {
@@ -249,6 +375,7 @@
 
       const resultsEl = document.getElementById('results');
       resultsEl.innerHTML = '<div class="muted">Ejecutando… esto puede tardar unos segundos ⏳</div>';
+      lastResult = null;
 
       try {
         const res = await fetch('/run', {
@@ -263,43 +390,205 @@
           return;
         }
 
+        // Build basic info area
+        const noData = '<div class="muted">No disponible.</div>';
         let html = '';
         html += `<div class="ok"><strong>Estado del modelo agregado:</strong> ${result.status} &nbsp; | &nbsp; <strong>Valor objetivo:</strong> ${result.z}</div>`;
+        html += `<div class="row-actions" style="margin-top:12px;"><button type="button" id="download-xlsx">Descargar Excel detallado</button></div>`;
 
-        html += `<h3 class="section-title">Tabla de Desagregación</h3>`;
-        html += result.tabla_desag || '<div class="muted">No disponible.</div>';
-
-        html += `<h3 class="section-title">Tabla de Producción por producto</h3>`;
-        html += result.tabla_prod || '<div class="muted">No disponible.</div>';
-
-        html += `<h3 class="section-title">Tabla de Inventario por producto</h3>`;
-        html += result.tabla_inv || '<div class="muted">No disponible.</div>';
-
-        html += `<h3 class="section-title">Resultados de la simulación (Totales)</h3>`;
-        html += result.df_totales || '<div class="muted">No disponible.</div>';
-
-        html += `<h3 class="section-title">Resultados de la simulación por producto</h3>`;
-        html += result.df_productos || '<div class="muted">No disponible.</div>';
-
-        html += `<h3 class="section-title">Resultados de la simulación por estación</h3>`;
-        html += result.df_estaciones || '<div class="muted">No disponible.</div>';
-
-        if (result.figures) {
-          html += `<div class="figure-container">`;
-          const titles = {
-            'fig_throughput_prod': 'Throughput por producto',
-            'fig_arrivals_prod':   'Entradas por producto',
-            'fig_util_station':    'Utilización por estación',
-            'fig_wait_station':    'Espera por estación'
-          };
-          for (const [key, b64] of Object.entries(result.figures)) {
-            const t = titles[key] || key;
-            html += `<h4>${t}</h4><img src="data:image/png;base64,${b64}" alt="${t}">`;
+        html += `<h3 class="section-title">Tabla de Demanda Planificada (mensual)</h3>`;
+        html += `<div id="agg-table-area" class="table-wrap">`;
+        if (result.json_agg_table) {
+          const rows = result.json_agg_table;
+          html += '<table class="table table-sm table-bordered"><thead><tr><th>Mes</th><th>P(t)</th><th>I(t)</th><th>S(t)</th><th>L(RT)</th><th>NI(t)</th><th>D(t)</th></tr></thead><tbody>';
+          for (const r of rows) {
+            html += `<tr><td>${r.Mes}</td><td>${r['P(t)']}</td><td>${r['I(t)']}</td><td>${r['S(t)']}</td><td>${r['L(RT)']}</td><td>${r['NI(t)']}</td><td>${r['D(t)']}</td></tr>`;
           }
-          html += `</div>`;
+          html += '</tbody></table>';
+        } else {
+          html += result.tabla_desag || noData;
         }
+        html += `</div>`;
+
+        html += `<h3 class="section-title">Gráfico: Demanda planificada vs Producción (interactivo)</h3>`;
+        html += `<div class="chart-card"><div id="plot-demand"></div></div>`;
+        html += `<h3 class="section-title">Gráfico: Desagregación por producto (interactivo)</h3>`;
+        html += `<div class="chart-card"><div id="plot-desag"></div></div>`;
+
+        html += `<h3 class="section-title">Tabla de producción mensual por producto</h3>`;
+        html += `<div class="table-wrap">${result.tabla_prod || noData}</div>`;
+        html += `<h3 class="section-title">Tabla de inventario mensual por producto</h3>`;
+        html += `<div class="table-wrap">${result.tabla_inv || noData}</div>`;
+
+        html += `<h3 class="section-title">Simulación - Métricas Totales</h3>`;
+        html += `<div class="chart-card"><div id="plot-sim-totales"></div></div>`;
+        html += `<h3 class="section-title">Simulación - Métricas por producto</h3>`;
+        html += `<div class="chart-card"><div id="plot-sim-productos"></div></div>`;
+        html += `<h3 class="section-title">Simulación - Métricas por estación</h3>`;
+        html += `<div class="chart-card"><div id="plot-sim-estaciones-util"></div></div>`;
+        html += `<div class="chart-card"><div id="plot-sim-estaciones-wait"></div></div>`;
+
+        html += `<h3 class="section-title">Tablas de la simulación</h3>`;
+        html += `<div class="sim-section">`;
+        html += `<div class="sim-table">${result.df_totales || noData}</div>`;
+        html += `<div class="sim-table">${result.df_productos || noData}</div>`;
+        html += `<div class="sim-table">${result.df_estaciones || noData}</div>`;
+        html += `</div>`;
 
         resultsEl.innerHTML = html;
+        lastResult = result;
+        attachDownloadHandler();
+
+        // Render interactive plots if JSON data present
+        try {
+          const plotConfig = { responsive: true, displaylogo: false };
+          if (result.json_agg_table && result.json_agg_table.length) {
+            const agg = result.json_agg_table;
+            const months = agg.map(r => r.Mes);
+            const prodSeries = agg.map(r => Number(r['P(t)'] || 0));
+            const demSeries = agg.map(r => Number(r['D(t)'] || 0));
+            const traces = [
+              { x: months, y: prodSeries, name: 'P(t) producción', mode: 'lines+markers' },
+              { x: months, y: demSeries, name: 'D(t) demanda', mode: 'lines+markers' }
+            ];
+            const layout = {
+              title: 'Comportamiento: Producción vs Demanda',
+              xaxis: { title: 'Mes' },
+              yaxis: { title: 'Unidades' },
+              legend: { orientation: 'h', y: -0.2 },
+              height: 360
+            };
+            Plotly.newPlot('plot-demand', traces, layout, plotConfig);
+          }
+          if (result.json_tabla_produccion) {
+            const prodRows = result.json_tabla_produccion;
+            if (prodRows && prodRows.length > 0) {
+              const months = prodRows.map(r => r.Mes || r.index || '');
+              const cols = Object.keys(prodRows[0]).filter(k => k !== 'index' && k !== 'Mes');
+              const traces = cols.map(col => ({
+                x: months,
+                y: prodRows.map(r => Number(r[col] || 0)),
+                name: col,
+                mode: 'lines+markers'
+              }));
+              const layout2 = {
+                title: 'Producción mensual por producto',
+                xaxis: { title: 'Mes' },
+                yaxis: { title: 'Litros' },
+                legend: { orientation: 'h' },
+                height: 360
+              };
+              Plotly.newPlot('plot-desag', traces, layout2, plotConfig);
+            }
+          }
+          if (result.json_sim_totales && result.json_sim_totales.length) {
+            const data = result.json_sim_totales;
+            const metricas = data.map(r => r.Metrica);
+            const medias = data.map(r => Number(r.Media || 0));
+            const errores = data.map(r => Number(r.IC95_HW || 0));
+            const traceTot = {
+              type: 'bar',
+              x: metricas,
+              y: medias,
+              marker: { color: '#0f62fe' },
+              error_y: { type: 'data', array: errores, visible: true, thickness: 1.5 }
+            };
+            const layoutTot = {
+              title: 'Métricas agregadas de la simulación',
+              xaxis: { title: 'Métrica' },
+              yaxis: { title: 'Valor medio' },
+              height: 360
+            };
+            Plotly.newPlot('plot-sim-totales', [traceTot], layoutTot, plotConfig);
+          }
+          if (result.json_sim_productos && result.json_sim_productos.length) {
+            const dataProd = result.json_sim_productos;
+            const productos = dataProd.map(r => r.Producto);
+            const metricConfigs = [
+              { key: 'Throughput_media', err: 'Throughput_HW', label: 'Throughput (lotes/día)', axis: 'Throughput [lotes/día]' },
+              { key: 'CycleTime_media_min', err: 'CycleTime_HW', label: 'Cycle time (min)', axis: 'Cycle time [min]' },
+              { key: 'WIP_media', err: 'WIP_HW', label: 'WIP (lotes)', axis: 'WIP [lotes]' },
+              { key: 'TaktTime_media_min', err: 'TaktTime_HW', label: 'Takt time (min/lote)', axis: 'Takt time [min/lote]' },
+              { key: 'Entradas_365d_media', err: 'Entradas_365d_HW', label: 'Entradas en 365d (lotes)', axis: 'Entradas [lotes]' }
+            ];
+            const tracesProd = metricConfigs.map((cfg, idx) => ({
+              type: 'bar',
+              x: productos,
+              y: dataProd.map(r => Number(r[cfg.key] || 0)),
+              error_y: { type: 'data', array: dataProd.map(r => Number(r[cfg.err] || 0)), visible: true },
+              name: cfg.label,
+              visible: idx === 0
+            }));
+            const buttons = metricConfigs.map((cfg, idx) => ({
+              label: cfg.label,
+              method: 'update',
+              args: [
+                { visible: tracesProd.map((_, i) => i === idx) },
+                { title: `Simulación - ${cfg.label}`, yaxis: { title: cfg.axis } }
+              ]
+            }));
+            const layoutProd = {
+              title: `Simulación - ${metricConfigs[0].label}`,
+              xaxis: { title: 'Producto' },
+              yaxis: { title: metricConfigs[0].axis },
+              updatemenus: [{
+                x: 0.5,
+                y: 1.25,
+                xanchor: 'center',
+                yanchor: 'top',
+                direction: 'down',
+                showactive: true,
+                buttons
+              }],
+              showlegend: false,
+              height: 360
+            };
+            Plotly.newPlot('plot-sim-productos', tracesProd, layoutProd, plotConfig);
+          }
+          if (result.json_sim_estaciones && result.json_sim_estaciones.length) {
+            const dataEst = result.json_sim_estaciones;
+            const estaciones = dataEst.map(r => r.Estacion);
+            if (estaciones.length) {
+              const utilValues = dataEst.map(r => Number(r.Utilizacion_media || 0));
+              const utilErrors = dataEst.map(r => Number(r.Utilizacion_HW || 0));
+              const maxUtil = utilValues.length ? Math.max(...utilValues) : 1;
+              const utilTrace = {
+                type: 'bar',
+                x: estaciones,
+                y: utilValues,
+                error_y: { type: 'data', array: utilErrors, visible: true },
+                marker: { color: '#3d70ff' }
+              };
+              const layoutUtil = {
+                title: 'Simulación - Utilización por estación',
+                xaxis: { title: 'Estación' },
+                yaxis: { title: 'Utilización', tickformat: '.0%', range: [0, Math.min(1, maxUtil + 0.1)] },
+                showlegend: false,
+                height: 360
+              };
+              Plotly.newPlot('plot-sim-estaciones-util', [utilTrace], layoutUtil, plotConfig);
+            }
+            const waitValues = dataEst.map(r => Number(r.Espera_media_min || 0));
+            const waitErrors = dataEst.map(r => Number(r.Espera_HW || 0));
+            const waitTrace = {
+              type: 'bar',
+              x: estaciones,
+              y: waitValues,
+              error_y: { type: 'data', array: waitErrors, visible: true },
+              marker: { color: '#ff832b' }
+            };
+            const layoutWait = {
+              title: 'Simulación - Espera media por estación',
+              xaxis: { title: 'Estación' },
+              yaxis: { title: 'Espera [min]' },
+              showlegend: false,
+              height: 360
+            };
+            Plotly.newPlot('plot-sim-estaciones-wait', [waitTrace], layoutWait, plotConfig);
+          }
+        } catch (errplot) {
+          console.warn('Error al renderizar plots interactivos:', errplot);
+        }
       } catch (err) {
         resultsEl.innerHTML = `<div class="alert"><strong>Ocurrió un error:</strong> ${err}</div>`;
       }

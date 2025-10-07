@@ -327,7 +327,7 @@ def plan_produccion_optimo(
                     "P(t)": P,
                     "I(t)": I,
                     "S(t)": S,
-                    "L(RT)": LR + LO - LU,  # approximate hours: reg + extra - idle; omitting wt adjustments since they cancel
+                    "L(RT)": LR + Wp - Wm + LO,  # plantilla ajustada (LR ± W) más horas extra
                     "NI(t)": NIT,
                     "D(t)": total_mes[t]
                 })

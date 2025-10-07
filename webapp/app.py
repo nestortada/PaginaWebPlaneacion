@@ -128,18 +128,58 @@ async def run_simulation(payload: dict = Body(...)):
             verbose=verbose
         )
 
-        # Prepare response: convert DataFrames to HTML
-        def df_to_html(df):
+        # Prepare response: convert DataFrames to HTML and JSON
+        def df_to_html(df, extra_classes: str = ""):
             if df is None:
                 return ""
-            return df.to_html(classes="table table-sm table-bordered", index=False, escape=False)
+            classes = "table table-sm table-bordered"
+            if extra_classes:
+                classes = f"{classes} {extra_classes}"
+            return df.to_html(classes=classes, index=False, escape=False)
 
-        tabla_desag = df_to_html(result['disagg']['df'])
-        tabla_prod  = df_to_html(result['tabla_produccion'])
-        tabla_inv   = df_to_html(result['tabla_inventario'])
-        df_totales  = df_to_html(result['sim_totales'])
-        df_productos= df_to_html(result['sim_productos'])
-        df_estaciones= df_to_html(result['sim_estaciones'])
+        def df_to_json(df, *, reset_index: bool = True, rename_map: dict | None = None):
+            if df is None:
+                return None
+            df_copy = df.reset_index() if reset_index else df.copy()
+            if rename_map:
+                df_copy = df_copy.rename(columns=rename_map)
+            return df_copy.to_dict(orient='records')
+
+        desagg_df = result['disagg']['df']
+        tabla_prod_df = result['tabla_produccion']
+        if tabla_prod_df is not None:
+            tabla_prod_df = tabla_prod_df.copy().reset_index().rename(columns={"index": "Mes"})
+        tabla_inv_df = result['tabla_inventario']
+        if tabla_inv_df is not None:
+            tabla_inv_df = tabla_inv_df.copy().reset_index().rename(columns={"index": "Mes"})
+        sim_totales_df = result['sim_totales']
+        sim_productos_df = result['sim_productos']
+        sim_estaciones_df = result['sim_estaciones']
+
+        tabla_desag = df_to_html(desagg_df)
+        tabla_prod  = df_to_html(tabla_prod_df) if tabla_prod_df is not None else ""
+        tabla_inv   = df_to_html(tabla_inv_df) if tabla_inv_df is not None else ""
+        df_totales  = df_to_html(sim_totales_df)
+        df_productos= df_to_html(sim_productos_df)
+        df_estaciones= df_to_html(sim_estaciones_df)
+
+        # JSON serializable tables for frontend interactive plotting
+        json_agg_table = df_to_json(result['agg']['df'])
+        json_disagg_table = df_to_json(desagg_df)
+        json_tabla_produccion = df_to_json(tabla_prod_df, reset_index=False)
+        json_tabla_inventario = df_to_json(tabla_inv_df, reset_index=False)
+        json_sim_totales = None
+        if sim_totales_df is not None:
+            rename_totales = dict(zip(sim_totales_df.columns, ["Metrica", "Media", "IC95_HW"]))
+            json_sim_totales = df_to_json(sim_totales_df.copy(), reset_index=False, rename_map=rename_totales)
+        json_sim_productos = df_to_json(sim_productos_df, reset_index=False)
+        json_sim_estaciones = None
+        if sim_estaciones_df is not None:
+            rename_estaciones = dict(zip(
+                sim_estaciones_df.columns,
+                ["Estacion", "Capacidad", "Utilizacion_media", "Utilizacion_HW", "Espera_media_min", "Espera_HW"]
+            ))
+            json_sim_estaciones = df_to_json(sim_estaciones_df.copy(), reset_index=False, rename_map=rename_estaciones)
 
         # Convert figures (if present) to base64
         figs_base64 = {}
@@ -161,7 +201,15 @@ async def run_simulation(payload: dict = Body(...)):
             "df_totales": df_totales,
             "df_productos": df_productos,
             "df_estaciones": df_estaciones,
-            "figures": figs_base64
+            "figures": figs_base64,
+            # JSON data for interactive plots
+            "json_agg_table": json_agg_table,
+            "json_disagg_table": json_disagg_table,
+            "json_tabla_produccion": json_tabla_produccion,
+            "json_tabla_inventario": json_tabla_inventario,
+            "json_sim_totales": json_sim_totales,
+            "json_sim_productos": json_sim_productos,
+            "json_sim_estaciones": json_sim_estaciones
         })
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
