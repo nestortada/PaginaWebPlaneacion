@@ -155,16 +155,26 @@ async def run_simulation(payload: dict = Body(...)):
         def df_to_html(df, extra_classes: str = ""):
             if df is None:
                 return ""
-            classes = "table table-sm table-bordered"
+            classes = "w-full text-sm text-left text-gray-300"
             if extra_classes:
                 classes = f"{classes} {extra_classes}"
             df_fmt = round_dataframe(df)
-            return df_fmt.to_html(
+            
+            # Use pandas Styler to add tailwind classes to th and td, or just return basic html and let CSS handle it.
+            # Easiest is to generate raw HTML and let index.html's CSS target the table elements, 
+            # or apply basic Tailwind classes directly to the table tag.
+            html = df_fmt.to_html(
                 classes=classes,
                 index=False,
                 escape=False,
                 float_format=lambda x: f"{x:.2f}"
             )
+            # Add some basic Tailwind styling to the generated generic HTML table tags
+            html = html.replace('<th>', '<th class="px-4 py-3 bg-white/5 border-b border-white/10 font-semibold text-white">')
+            html = html.replace('<td>', '<td class="px-4 py-3 border-b border-white/10">')
+            html = html.replace('<tr>', '<tr class="hover:bg-white/5 transition-colors">')
+            
+            return html
 
         def df_to_json(df, *, reset_index: bool = True, rename_map: dict | None = None, decimals: int = 2):
             if df is None:

@@ -1,218 +1,320 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="dark">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Planeación de Producción y Simulación</title>
   <link rel="icon" href="/static/favicon.ico">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          colors: {
+            brand: { 400: '#8b5cf6', 500: '#6d28d9', 600: '#5b21b6' }, // Purple neon
+            accent: { 400: '#38bdf8', 500: '#0ea5e9' } // Blue neon
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    :root { --bg:#f7f7f7; --card:#fff; --text:#333; --muted:#666; --border:#ddd; }
-    html, body { margin:0; padding:0; background:var(--bg); color:var(--text); font-family:system-ui, Arial, sans-serif; }
-    .container { max-width:1200px; margin:0 auto; padding:24px; }
-    h1 { margin:0 0 8px; font-size:28px; }
-    p.lead { margin:0 0 24px; color:var(--muted); }
-    .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:20px; box-shadow:0 1px 2px rgba(0,0,0,.04); }
-    .card h2 { margin:0 0 12px; font-size:18px; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { border: 1px solid var(--border); padding: 8px; text-align: center; }
-    th { background: #f2f2f2; }
-    input[type="number"] { width: 100%; padding: 6px; box-sizing: border-box; border:1px solid var(--border); border-radius:8px; }
-    .grid { display: grid; grid-template-columns: repeat(4, minmax(220px,1fr)); gap: 12px; }
-    .grid .field { display:flex; flex-direction:column; gap:6px; }
-    label { font-size:12px; text-transform:uppercase; letter-spacing:.02em; color:#555; }
-    .row-actions { display:flex; justify-content:flex-end; gap:12px; }
-    button { padding:10px 16px; border:none; border-radius:10px; background:#0f62fe; color:white; font-weight:600; cursor:pointer; }
-    button:hover { background:#095ad8; }
-    .results-section { margin-top: 24px; }
-    .section-title { margin: 28px 0 12px; font-size: 18px; }
-    .table-wrap { overflow-x: auto; margin-bottom: 24px; }
-    .chart-card { background: var(--card); border:1px solid var(--border); border-radius:12px; padding:12px; margin-bottom:28px; box-shadow:0 1px 2px rgba(0,0,0,.04); }
-    .chart-card > div { width:100%; height:360px; }
-    .sim-section { margin-bottom: 12px; }
-    .sim-table { margin-bottom: 28px; }
-    .sim-table:last-child { margin-bottom: 0; }
-    .figure-container img { max-width: 100%; height: auto; margin: 8px 0 16px; border-radius:10px; border:1px solid var(--border); }
-    .alert { padding:10px 12px; border-radius:8px; border:1px solid #f5c2c7; background:#fff2f3; color:#842029; }
-    .ok { padding:10px 12px; border-radius:8px; border:1px solid #cfe8cf; background:#f4fff4; color:#164b16; }
-    .muted { color: var(--muted); font-size: 12px; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #0b0f19;
+      color: #f1f5f9;
+    }
+
+    .glass-card {
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 1rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+
+    .neon-glow:hover {
+      box-shadow: 0 0 15px rgba(139, 92, 246, 0.5);
+    }
+
+    .input-glass {
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #fff;
+      border-radius: 0.5rem;
+      padding: 0.5rem;
+      width: 100%;
+      transition: all 0.2s;
+    }
+
+    .input-glass:focus {
+      outline: none;
+      border-color: #8b5cf6;
+      box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+    }
+
+    .table-glass th {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .table-glass td,
+    .table-glass th {
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 0.5rem;
+      text-align: center;
+    }
+
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
   </style>
 </head>
-<body>
-  <div class="container">
-    <h1>Planeación de Producción y Simulación</h1>
-    <p class="lead">Edita los parámetros. Si dejas un campo vacío, se usará el valor por defecto.</p>
 
-    <!-- DEMANDA -->
-    <div class="card">
-      <h2>Demanda mensual por producto (litros)</h2>
-      <table id="data-table">
-        <thead>
-          <tr>
-            <th>Mes</th>
-            <th title="Energizante">Energizante</th>
-            <th title="Isotónica">Isotónica</th>
-            <th title="Agua saborizada">Agua saborizada</th>
-            <th title="Té">Té</th>
-            <th title="Jugo">Jugo</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for month in month_order %}
-            {% set values = default_data[month] %}
-            <tr data-month="{{ month }}">
-              <td style="text-align:left;font-weight:600">{{ month }}</td>
-              {% for idx in range(5) %}
-                <td>
-                  <input
-                    type="number" min="0" step="1"
-                    data-month="{{ month }}" data-prod="{{ idx }}"
-                    value="{{ values[idx] }}"
-                    data-default="{{ values[idx] }}"
-                    title="Demanda de {{ month }} para producto {{ idx + 1 }}"
-                  />
-                </td>
-              {% endfor %}
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      <div class="muted">Sugerencia: pega números rápidamente usando TAB/Shift+TAB.</div>
+<body class="flex h-screen overflow-hidden antialiased selection:bg-brand-500 selection:text-white">
+
+  <!-- Sidebar -->
+  <aside class="w-64 flex-shrink-0 glass-card m-4 flex flex-col hidden md:flex z-10 relative">
+    <div class="p-6 border-b border-white/10">
+      <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand-400 to-accent-400">ProdSim
+        V2</h1>
+      <p class="text-xs text-gray-400 mt-1">Panel de Ingeniero Jefe</p>
     </div>
-
-    <!-- TIEMPOS -->
-    <div class="card">
-      <h2>Tiempos de procesos (minutos)</h2>
-      <table id="times-table">
-        <thead>
-          <tr><th style="width:50%">Parámetro</th><th>Valor</th></tr>
-        </thead>
-        <tbody>
-          {% for key, val in default_times.items() %}
-            <tr>
-              <td style="text-align:left">{{ key }}</td>
-              <td>
-                <input
-                  type="number" step="0.1" min="0"
-                  id="time-{{ key }}"
-                  value="{{ val }}"
-                  data-default="{{ val }}"
-                  title="Tiempo para {{ key }}"
-                />
-              </td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
+      <a href="#"
+        class="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/10 text-white font-medium neon-glow transition-all">
+        <svg class="w-5 h-5 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z">
+          </path>
+        </svg>
+        Panel Principal
+      </a>
+      <a href="#demand-section"
+        class="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+        </svg>
+        Matriz de Demanda
+      </a>
+      <a href="#times-section"
+        class="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        Tiempos de Proceso
+      </a>
+      <a href="#params-section"
+        class="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
+          </path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z">
+          </path>
+        </svg>
+        Parámetros
+      </a>
+      <a href="#results"
+        class="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
+          </path>
+        </svg>
+        Simulaciones
+      </a>
+    </nav>
+    <div class="p-6 border-t border-white/10">
+      <button id="run-btn"
+        class="w-full py-3 px-4 bg-gradient-to-r from-brand-600 to-accent-600 hover:from-brand-500 hover:to-accent-500 text-white font-bold rounded-xl shadow-[0_0_20px_rgba(139,92,246,0.3)] hover:shadow-[0_0_25px_rgba(139,92,246,0.6)] transition-all flex justify-center items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z">
+          </path>
+        </svg>
+        Ejecutar Simulación
+      </button>
     </div>
+  </aside>
 
-    <!-- PARÁMETROS -->
-    <div class="card">
-      <h2>Parámetros adicionales</h2>
-      <div class="grid">
-        <div class="field">
-          <label title="Proporción de inventario inicial respecto a la venta media mensual">p_inv_inicial</label>
-          <input id="p_inv_inicial" type="number" step="0.01" min="0" value="0.25" data-default="0.25" />
-        </div>
-        <div class="field">
-          <label title="Proporción de inventario final requerido en diciembre">p_inv_final</label>
-          <input id="p_inv_final" type="number" step="0.01" min="0" value="0.10" data-default="0.10" />
-        </div>
-        <div class="field">
-          <label title="Unidad (litros por lote / conversión)">unidad</label>
-          <input id="unidad" type="number" step="0.1" min="1" value="3" data-default="3" />
-        </div>
-        <div class="field">
-          <label title="Costo de producción por litro">ct</label>
-          <input id="ct" type="number" step="1" min="0" value="578" data-default="578" />
-        </div>
-        <div class="field">
-          <label title="Costo de inventario por litro-mes">ht</label>
-          <input id="ht" type="number" step="1" min="0" value="145" data-default="145" />
-        </div>
-        <div class="field">
-          <label title="Costo de penalización por faltante">pit</label>
-          <input id="pit" type="number" step="1" min="0" value="10000000" data-default="10000000" />
-        </div>
-        <div class="field">
-          <label title="Costo por hora regular">crt</label>
-          <input id="crt" type="number" step="0.1" min="0" value="5931.25" data-default="5931.25" />
-        </div>
-        <div class="field">
-          <label title="Costo por hora extra">cot</label>
-          <input id="cot" type="number" step="0.1" min="0" value="5931.25" data-default="5931.25" />
-        </div>
-        <div class="field">
-          <label title="Costo por contratar trabajadores adicionales">cwt</label>
-          <input id="cwt" type="number" step="0.1" min="0" value="5931.25" data-default="5931.25" />
-        </div>
-        <div class="field">
-          <label title="Costo por reducir trabajadores">cwt_prima</label>
-          <input id="cwt_prima" type="number" step="0.1" min="0" value="5931.25" data-default="5931.25" />
-        </div>
-        <div class="field">
-          <label title="Costo por unidad producida en el modelo desagregado">costo_prod</label>
-          <input id="costo_prod" type="number" step="0.1" min="0" value="1.0" data-default="1.0" />
-        </div>
-        <div class="field">
-          <label title="Costo de inventario en el modelo desagregado">costo_inv</label>
-          <input id="costo_inv" type="number" step="0.1" min="0" value="0.25" data-default="0.25" />
-        </div>
-        <div class="field">
-          <label title="Número de réplicas en la simulación">reps</label>
-          <input id="reps" type="number" step="1" min="1" value="10" data-default="10" />
-        </div>
-        <div class="field">
-          <label title="Usar restricción de no producir meses consecutivos">use_no_consecutive</label>
-          <input id="use_no_consecutive" type="checkbox"/>
-        </div>
-        <div class="field">
-          <label title="Aplica inventario de seguridad basado en la demanda del mes siguiente">use_safe_stock</label>
-          <input id="use_safe_stock" type="checkbox"/>
-        </div>
-        <div class="field">
-          <label title="Usar suavizado en la producción mensual">use_smooth</label>
-          <input id="use_smooth" type="checkbox"/>
-        </div>
-        <div class="field">
-          <label title="Graficar series de producción/demanda">graficar</label>
-          <input id="graficar" type="checkbox" checked/>
-        </div>
-        <div class="field">
-          <label title="Retornar tablas de resultados">return_tables</label>
-          <input id="return_tables" type="checkbox" checked/>
-        </div>
-        <div class="field">
-          <label title="Generar gráficos de la simulación">make_plots</label>
-          <input id="make_plots" type="checkbox" checked/>
-        </div>
-        <div class="field">
-          <label title="Mostrar información detallada en consola">verbose</label>
-          <input id="verbose" type="checkbox" checked/>
+  <!-- Main Content -->
+  <main class="flex-1 overflow-y-auto p-4 md:p-8 relative">
+    <header class="mb-8 hidden md:block">
+      <h2 class="text-3xl font-light text-white tracking-tight">Panel Ejecutivo</h2>
+      <p class="text-gray-400 mt-2">Simulando el equilibrio oferta-demanda para los periodos fiscales Q1-Q4.</p>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
+
+      <!-- Upload Card -->
+      <div class="glass-card p-6 col-span-1 lg:col-span-2 xl:col-span-3">
+        <h3 class="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <svg class="w-5 h-5 text-accent-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+          </svg>
+          Importar Datos de Demanda
+        </h3>
+        <div class="flex items-center gap-4">
+          <label
+            class="relative cursor-pointer bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl px-4 py-3 transition-colors text-sm font-medium text-gray-300 w-full md:w-auto text-center neon-glow">
+            <span>Subir Excel (.xlsx, .xls)</span>
+            <input id="excel-file" type="file" accept=".xlsx,.xls" class="hidden" />
+          </label>
+          <span class="text-xs text-gray-500">Formato esperado: 12 filas (meses) x 5 columnas.</span>
         </div>
       </div>
-      <div class="row-actions"><button id="run-btn" type="button">Planeación</button></div>
-      <div class="muted">Tip: los *tooltips* están en los títulos de cada etiqueta.</div>
+
+      <!-- Demand Matrix -->
+      <div id="demand-section"
+        class="glass-card p-6 col-span-1 lg:col-span-2 xl:col-span-2 overflow-hidden flex flex-col">
+        <h3 class="text-lg font-semibold text-white mb-4">Matriz de Demanda</h3>
+        <div class="overflow-x-auto flex-1">
+          <table id="data-table" class="w-full table-glass text-sm">
+            <thead>
+              <tr>
+                <th class="text-left">Mes</th>
+                <th title="Energizante">Energizante</th>
+                <th title="Isotónica">Isotónica</th>
+                <th title="Agua saborizada">Agua sab.</th>
+                <th title="Té">Té</th>
+                <th title="Jugo">Jugo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for month in month_order %}
+              {% set values = default_data[month] %}
+              <tr data-month="{{ month }}">
+                <td class="text-left font-medium text-gray-300">{{ month }}</td>
+                {% for idx in range(5) %}
+                <td>
+                  <input type="number" min="0" step="1" data-month="{{ month }}" data-prod="{{ idx }}"
+                    value="{{ values[idx] }}" data-default="{{ values[idx] }}"
+                    class="input-glass text-center text-xs" />
+                </td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Process Times -->
+      <div id="times-section" class="glass-card p-6 col-span-1 flex flex-col">
+        <h3 class="text-lg font-semibold text-white mb-4">Tiempos de Proceso (min)</h3>
+        <div class="overflow-y-auto flex-1 pr-2">
+          <div class="grid grid-cols-2 gap-3">
+            {% for key, val in default_times.items() %}
+            <div class="flex flex-col">
+              <label class="text-[10px] uppercase tracking-wider text-gray-400 mb-1 truncate" title="{{ key }}">{{ key
+                }}</label>
+              <input type="number" step="0.1" min="0" id="time-{{ key }}" value="{{ val }}" data-default="{{ val }}"
+                class="input-glass text-sm" />
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Parameters -->
+      <div id="params-section" class="glass-card p-6 col-span-1 lg:col-span-2 xl:col-span-3">
+        <h3 class="text-lg font-semibold text-white mb-4">Parámetros de Simulación</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
+              title="Inv Inicial">p_inv_inicial</label><input id="p_inv_inicial" type="number" step="0.01" min="0"
+              value="0.25" data-default="0.25" class="input-glass" /></div>
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
+              title="Inv Final">p_inv_final</label><input id="p_inv_final" type="number" step="0.01" min="0"
+              value="0.10" data-default="0.10" class="input-glass" /></div>
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1" title="Unidad">unidad
+              (L)</label><input id="unidad" type="number" step="0.1" min="1" value="3" data-default="3"
+              class="input-glass" /></div>
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1" title="Costo Prod">ct
+              ($)</label><input id="ct" type="number" step="1" min="0" value="578" data-default="578"
+              class="input-glass" /></div>
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1" title="Costo Inv">ht
+              ($)</label><input id="ht" type="number" step="1" min="0" value="145" data-default="145"
+              class="input-glass" /></div>
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1" title="Penalización">pit
+              ($)</label><input id="pit" type="number" step="1" min="0" value="10000000" data-default="10000000"
+              class="input-glass" /></div>
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1" title="Hora regular">crt
+              ($)</label><input id="crt" type="number" step="0.1" min="0" value="5931.25" data-default="5931.25"
+              class="input-glass" /></div>
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1" title="Hora extra">cot
+              ($)</label><input id="cot" type="number" step="0.1" min="0" value="5931.25" data-default="5931.25"
+              class="input-glass" /></div>
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1" title="Contratar">cwt
+              ($)</label><input id="cwt" type="number" step="0.1" min="0" value="5931.25" data-default="5931.25"
+              class="input-glass" /></div>
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1" title="Despedir">cwt_prima
+              ($)</label><input id="cwt_prima" type="number" step="0.1" min="0" value="5931.25" data-default="5931.25"
+              class="input-glass" /></div>
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
+              title="Costo desag">costo_prod</label><input id="costo_prod" type="number" step="0.1" min="0" value="1.0"
+              data-default="1.0" class="input-glass" /></div>
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
+              title="Costo inv desag">costo_inv</label><input id="costo_inv" type="number" step="0.1" min="0"
+              value="0.25" data-default="0.25" class="input-glass" /></div>
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
+              title="Réplicas">reps</label><input id="reps" type="number" step="1" min="1" value="10" data-default="10"
+              class="input-glass" /></div>
+
+          <div class="col-span-2 md:col-span-4 lg:col-span-3 grid grid-cols-2 gap-4 mt-2">
+            <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer"><input type="checkbox"
+                id="use_no_consecutive" class="form-checkbox text-brand-500 rounded bg-black/20 border-white/20"> No
+              consecutivos</label>
+            <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer"><input type="checkbox"
+                id="use_safe_stock" class="form-checkbox text-brand-500 rounded bg-black/20 border-white/20"> Inv.
+              seguridad</label>
+            <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer"><input type="checkbox"
+                id="use_smooth" class="form-checkbox text-brand-500 rounded bg-black/20 border-white/20">
+              Suavización</label>
+            <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hidden"><input type="checkbox"
+                id="graficar" checked> Graficar</label>
+            <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hidden"><input type="checkbox"
+                id="return_tables" checked> Tablas</label>
+            <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hidden"><input type="checkbox"
+                id="make_plots" checked> Plots</label>
+            <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hidden"><input type="checkbox"
+                id="verbose" checked> Verbose</label>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- RESULTADOS -->
-    <div id="results" class="results-section"></div>
-  </div>
+    <div id="results" class="space-y-6 pb-20"></div>
+  </main>
 
-  <!-- Load SheetJS (for Excel parsing) and Plotly (for interactive charts) -->
+  <!-- Load SheetJS & Plotly -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.25.2.min.js"></script>
 
   <script>
-    // Add file input UI
-    const fileUploaderHtml = `
-      <div class="card">
-        <h2>Subir archivo Excel con demanda mensual</h2>
-        <input id="excel-file" type="file" accept=".xlsx,.xls" />
-        <div class="muted">Formato esperado: 12 filas (meses) y 5 columnas (productos) o una hoja con encabezados que incluyan los meses.</div>
-      </div>
-    `;
-    document.querySelector('.container').insertAdjacentHTML('afterbegin', fileUploaderHtml);
-
     let lastResult = null;
     let lastPayload = null;
 
@@ -222,274 +324,79 @@
       const n = Number(raw);
       return Number.isFinite(n) ? n : parseFloat(input.dataset.default);
     }
+
     function roundToTwo(value) {
       const num = Number(value);
-      if (!Number.isFinite(num)) return 0;
-      return Math.round((num + Number.EPSILON) * 100) / 100;
+      return !Number.isFinite(num) ? 0 : Math.round((num + Number.EPSILON) * 100) / 100;
+    }
+
+    function formatCurrency(value) {
+      const num = Number(value);
+      if (!Number.isFinite(num)) return value;
+      return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(num);
     }
 
     function formatNumber(value, options = {}) {
       const num = Number(value);
-      if (!Number.isFinite(num)) {
-        return value === 0 ? "0,00" : (value ?? "");
-      }
-      const formatter = new Intl.NumberFormat("es-ES", Object.assign({
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      }, options));
-      return formatter.format(num);
+      if (!Number.isFinite(num)) return value === 0 ? "0.00" : (value ?? "");
+      return new Intl.NumberFormat("es-ES", Object.assign({ minimumFractionDigits: 2, maximumFractionDigits: 2 }, options)).format(num);
     }
 
-
-    // Populate table from parsed 2D array of numbers
-    function populateDemandTableFromArray(arr) {
-      // arr expected as array of 12 rows with 5 numbers each
-      const tbody = document.querySelector('#data-table tbody');
-      const rows = tbody.querySelectorAll('tr');
-      rows.forEach((row, i) => {
-        if (!arr[i]) return;
-        const inputs = row.querySelectorAll('input');
-        inputs.forEach((inp, j) => {
-          if (typeof arr[i][j] !== 'undefined' && arr[i][j] !== null && !Number.isNaN(Number(arr[i][j]))) {
-            inp.value = Number(arr[i][j]);
-          }
-        });
-      });
-    }
-
-    // Handle Excel upload
+    // Handle Excel Upload
     document.addEventListener('change', (ev) => {
       if (ev.target && ev.target.id === 'excel-file') {
         const f = ev.target.files[0];
         if (!f) return;
         const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = function (e) {
           const data = new Uint8Array(e.target.result);
-          const workbook = XLSX.read(data, {type: 'array'});
-          // try first sheet
-          const wsname = workbook.SheetNames[0];
-          const ws = workbook.Sheets[wsname];
-          const json = XLSX.utils.sheet_to_json(ws, {header:1, raw:true});
-          // try to extract first 12 rows with at least 5 numbers
+          const workbook = XLSX.read(data, { type: 'array' });
+          const ws = workbook.Sheets[workbook.SheetNames[0]];
+          const json = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true });
           const parsed = [];
-          for (let r=0; r<json.length && parsed.length<12; r++) {
+          for (let r = 0; r < json.length && parsed.length < 12; r++) {
             const row = json[r];
-            // filter out rows that are empty
             if (!row || row.length === 0) continue;
-            // try to find numbers in the row
-            const nums = row.slice(0,5).map(x => {
+            const nums = row.slice(0, 5).map(x => {
               const n = Number(x);
               return Number.isFinite(n) ? n : null;
             });
-            // only accept rows with at least one number
-            if (nums.some(v => v !== null)) parsed.push(nums.map(v => v===null?0:v));
+            if (nums.some(v => v !== null)) parsed.push(nums.map(v => v === null ? 0 : v));
           }
           if (parsed.length === 0) {
-            alert('No se pudieron leer filas numéricas del archivo. Asegúrese de subir una hoja con valores numéricos.');
-            return;
+            alert('Error leyendo el archivo.'); return;
           }
-          // if less than 12 rows, warn but still populate top rows
-          populateDemandTableFromArray(parsed);
+          const tbody = document.querySelector('#data-table tbody');
+          tbody.querySelectorAll('tr').forEach((row, i) => {
+            if (!parsed[i]) return;
+            row.querySelectorAll('input').forEach((inp, j) => {
+              if (parsed[i][j] != null) inp.value = parsed[i][j];
+            });
+          });
         };
         reader.readAsArrayBuffer(f);
       }
     });
 
-    function gatherData() {
+    // Run Simulation
+    document.getElementById('run-btn').addEventListener('click', async () => {
       const data = {};
       document.querySelectorAll('#data-table tbody tr').forEach(row => {
         const month = row.getAttribute('data-month');
-        const values = [];
-        row.querySelectorAll('input').forEach(input => {
-          // usa value si existe, si no, usa data-default
-          const raw = (input.value || '').trim();
-          const def = parseFloat(input.dataset.default);
-          values.push(raw === '' ? def : Number(raw));
-        });
+        const values = Array.from(row.querySelectorAll('input')).map(input => fallbackNumber(input));
         data[month] = values;
       });
-      return data;
-    }
 
-    function gatherTimes() {
-      const times = {};
-      document.querySelectorAll('#times-table input').forEach(input => {
-        const key = input.id.replace('time-','');
-        const val = (input.value || '').trim();
-        times[key] = val === '' ? parseFloat(input.dataset.default) : Number(val);
+      const tiempos_procesos = {};
+      document.querySelectorAll('#times-section input').forEach(input => {
+        tiempos_procesos[input.id.replace('time-', '')] = fallbackNumber(input);
       });
-      return times;
-    }
 
-    function appendSheet(workbook, records, sheetName, order) {
-      if (!records || !records.length) return;
-      const headerSet = {};
-      records.forEach(row => {
-        Object.keys(row || {}).forEach(key => {
-          if (!(key in headerSet)) headerSet[key] = true;
-        });
-      });
-      const headers = (order && order.length) ? order : Object.keys(headerSet);
-      if (!headers.length) return;
-      const normalized = records.map(row => {
-        const out = {};
-        headers.forEach(h => {
-          out[h] = row ? row[h] : null;
-        });
-        return out;
-      });
-      const ws = XLSX.utils.json_to_sheet(normalized, { header: headers });
-      XLSX.utils.book_append_sheet(workbook, ws, sheetName);
-    }
-
-    function attachDownloadHandler() {
-      const btn = document.getElementById('download-xlsx');
-      if (!btn) return;
-      btn.onclick = () => {
-        if (!lastResult) {
-          alert('Primero ejecuta la planeación para generar datos.');
-          return;
-        }
-        try {
-          const wb = XLSX.utils.book_new();
-          appendSheet(wb, lastResult.json_agg_table, 'Agregado', ['Mes','P(t)','I(t)','S(t)','L(RT)','NI(t)','D(t)']);
-          appendSheet(wb, lastResult.json_disagg_table, 'Desagregado');
-          appendSheet(wb, lastResult.json_tabla_produccion, 'Produccion');
-          appendSheet(wb, lastResult.json_tabla_inventario, 'Inventario');
-          appendSheet(wb, lastResult.json_sim_totales, 'Sim_Totales', ['Metrica','Media','IC95_HW']);
-          appendSheet(wb, lastResult.json_sim_productos, 'Sim_Productos');
-          appendSheet(wb, lastResult.json_sim_estaciones, 'Sim_Estaciones', ['Estacion','Capacidad_ideal','Capacidad','Utilizacion_media','Utilizacion_HW','Espera_media_min','Espera_HW']);
-          if (!wb.SheetNames.length) {
-            alert('No hay datos para exportar.');
-            return;
-          }
-          XLSX.writeFile(wb, 'planeacion_detallada.xlsx');
-        } catch (err) {
-          console.error('Error al generar el Excel:', err);
-          alert('No se pudo generar el archivo Excel.');
-        }
-      };
-    }
-
-
-    function renderCapacityTable(result) {
-      const container = document.getElementById('capacity-table-container');
-      if (!container) return;
-      const data = result.json_sim_estaciones;
-      if (!data || !data.length) {
-        container.innerHTML = result.df_estaciones || '<div class="muted">No disponible.</div>';
-        return;
-      }
-      const rowsHtml = data.map((row, idx) => {
-        const idealStr = formatNumber(row.Capacidad_ideal);
-        const usedNum = Number(row.Capacidad ?? row.Capacidad_ideal ?? '');
-        const usedStr = Number.isFinite(usedNum) ? usedNum.toFixed(2) : '';
-        const utilMedia = formatNumber(row.Utilizacion_media);
-        const utilHw = formatNumber(row.Utilizacion_HW);
-        const esperaMedia = formatNumber(row.Espera_media_min);
-        const esperaHw = formatNumber(row.Espera_HW);
-        return `
-          <tr>
-            <td>${row.Estacion}</td>
-            <td>${idealStr}</td>
-            <td>
-              <input type="number" class="cap-input" data-index="${idx}" min="0" step="0.01" value="${usedStr}" aria-label="Capacidad ajustada para ${row.Estacion}" />
-            </td>
-            <td>${utilMedia}</td>
-            <td>${utilHw}</td>
-            <td>${esperaMedia}</td>
-            <td>${esperaHw}</td>
-          </tr>`;
-      }).join('');
-      container.innerHTML = `
-        <table class="table table-sm table-bordered">
-          <thead>
-            <tr>
-              <th>Estación</th>
-              <th>Capacidad ideal [unidades]</th>
-              <th>Capacidad ajustada [unidades]</th>
-              <th>Utilización media [fracción]</th>
-              <th>IC95 Utilización [fracción]</th>
-              <th>Espera media [min]</th>
-              <th>IC95 Espera [min]</th>
-            </tr>
-          </thead>
-          <tbody>${rowsHtml}</tbody>
-        </table>`;
-      const statusEl = document.getElementById('recalc-status');
-      if (statusEl) statusEl.textContent = '';
-    }
-
-    function attachRecalcHandler() {
-      const btn = document.getElementById('recalc-btn');
-      if (!btn) return;
-      btn.onclick = recalcMetrics;
-    }
-
-    async function recalcMetrics() {
-      if (!lastResult || !lastPayload) {
-        alert('Primero ejecuta la planeación para obtener resultados.');
-        return;
-      }
-      const inputs = Array.from(document.querySelectorAll('#capacity-table-container input.cap-input'));
-      if (!inputs.length) return;
-      const statusEl = document.getElementById('recalc-status');
-      const capacities = inputs.map(inp => Number(inp.value));
-      if (capacities.some(val => !Number.isFinite(val) || val <= 0)) {
-        if (statusEl) statusEl.textContent = 'Revisa las capacidades: deben ser números positivos.';
-        return;
-      }
-      if (statusEl) statusEl.textContent = 'Recalculando métricas...';
-      const btn = document.getElementById('recalc-btn');
-      if (btn) btn.disabled = true;
-      const payload = JSON.parse(JSON.stringify(lastPayload));
-      payload.capacidades_override = capacities;
-      payload.make_plots = false;
-      payload.return_tables = true;
-      try {
-        const res = await fetch('/run', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const result = await res.json();
-        if (!res.ok || result.error) {
-          throw new Error(result.error || 'Error desconocido');
-        }
-        lastResult = result;
-        lastPayload = JSON.parse(JSON.stringify(payload));
-        const totalesEl = document.getElementById('sim-table-totales');
-        if (totalesEl) {
-          totalesEl.innerHTML = result.df_totales || '<div class="muted">No disponible.</div>';
-        }
-        const productosEl = document.getElementById('sim-table-productos');
-        if (productosEl) {
-          productosEl.innerHTML = result.df_productos || '<div class="muted">No disponible.</div>';
-        }
-        renderCapacityTable(result);
-        attachDownloadHandler();
-        attachRecalcHandler();
-        if (statusEl) statusEl.textContent = 'Métricas actualizadas.';
-      } catch (err) {
-        console.error(err);
-        if (statusEl) statusEl.textContent = `Error al recalcular: ${err.message}`;
-      } finally {
-        if (btn) btn.disabled = false;
-      }
-    }
-
-
-
-    async function runSimulation() {
       const payload = {
-        data: gatherData(),
+        data, tiempos_procesos,
         p_inv_inicial: fallbackNumber(document.getElementById('p_inv_inicial')),
-        p_inv_final:   fallbackNumber(document.getElementById('p_inv_final')),
-        tiempos_procesos: gatherTimes(),
+        p_inv_final: fallbackNumber(document.getElementById('p_inv_final')),
         unidad: fallbackNumber(document.getElementById('unidad')),
-        use_no_consecutive: document.getElementById('use_no_consecutive').checked,
-        use_safe_stock: document.getElementById('use_safe_stock').checked,
-        use_smooth: document.getElementById('use_smooth').checked,
         ct: fallbackNumber(document.getElementById('ct')),
         ht: fallbackNumber(document.getElementById('ht')),
         pit: fallbackNumber(document.getElementById('pit')),
@@ -497,257 +404,141 @@
         cot: fallbackNumber(document.getElementById('cot')),
         cwt: fallbackNumber(document.getElementById('cwt')),
         cwt_prima: fallbackNumber(document.getElementById('cwt_prima')),
-        graficar: document.getElementById('graficar').checked,
         costo_prod: fallbackNumber(document.getElementById('costo_prod')),
-        costo_inv:  fallbackNumber(document.getElementById('costo_inv')),
-        return_tables: document.getElementById('return_tables').checked,
-        make_plots: document.getElementById('make_plots').checked,
+        costo_inv: fallbackNumber(document.getElementById('costo_inv')),
         reps: fallbackNumber(document.getElementById('reps')),
-        verbose: document.getElementById('verbose').checked
+        use_no_consecutive: document.getElementById('use_no_consecutive').checked,
+        use_safe_stock: document.getElementById('use_safe_stock').checked,
+        use_smooth: document.getElementById('use_smooth').checked,
+        graficar: true, return_tables: true, make_plots: true, verbose: true
       };
 
       const resultsEl = document.getElementById('results');
-      resultsEl.innerHTML = '<div class="muted">Ejecutando… esto puede tardar unos segundos ⏳</div>';
-      lastResult = null;
-      lastPayload = null;
+      resultsEl.innerHTML = `
+                <div class="flex items-center justify-center p-12">
+                    <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-500"></div>
+                    <span class="ml-4 text-brand-400 font-medium">Ejecutando Modelo de Simulación Complejo...</span>
+                </div>`;
 
       try {
         const res = await fetch('/run', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
         });
         const result = await res.json();
+        if (!res.ok || result.error) throw new Error(result.error || 'Error desconocido');
 
-        if (!res.ok || result.error) {
-          resultsEl.innerHTML = `<div class="alert"><strong>Error:</strong> ${result.error || 'Error desconocido'}</div>`;
-          return;
-        }
-
-        // Build basic info area
-        const noData = '<div class="muted">No disponible.</div>';
-        let html = '';
-        html += `<div class="ok"><strong>Estado del modelo agregado:</strong> ${result.status} &nbsp; | &nbsp; <strong>Valor objetivo:</strong> ${formatNumber(result.z)}</div>`;
-        html += `<div class="row-actions" style="margin-top:12px;"><button type="button" id="download-xlsx">Descargar Excel detallado</button></div>`;
-
-        html += `<h3 class="section-title">Tabla de Demanda Planificada (mensual, litros)</h3>`;
-        html += `<div id="agg-table-area" class="table-wrap">`;
-        if (result.json_agg_table) {
-          const rows = result.json_agg_table;
-          html += '<table class="table table-sm table-bordered"><thead><tr><th>Mes</th><th>P(t) [litros]</th><th>I(t) [litros]</th><th>S(t) [litros]</th><th>L(RT) [litros]</th><th>NI(t) [litros]</th><th>D(t) [litros]</th></tr></thead><tbody>';
-          for (const r of rows) {
-            html += `<tr><td>${r.Mes}</td><td>${formatNumber(r['P(t)'])}</td><td>${formatNumber(r['I(t)'])}</td><td>${formatNumber(r['S(t)'])}</td><td>${formatNumber(r['L(RT)'])}</td><td>${formatNumber(r['NI(t)'])}</td><td>${formatNumber(r['D(t)'])}</td></tr>`;
-          }
-          html += '</tbody></table>';
-        } else {
-          html += result.tabla_desag || noData;
-        }
-        html += `</div>`;
-
-        html += `<h3 class="section-title">Gráfico: Demanda planificada vs Producción (interactivo, litros)</h3>`;
-        html += `<div class="chart-card"><div id="plot-demand"></div></div>`;
-        html += `<h3 class="section-title">Gráfico: Desagregación por producto (interactivo, litros)</h3>`;
-        html += `<div class="chart-card"><div id="plot-desag"></div></div>`;
-
-        html += `<h3 class="section-title">Tabla de producción mensual por producto (litros)</h3>`;
-        html += `<div class="table-wrap">${result.tabla_prod || noData}</div>`;
-        html += `<h3 class="section-title">Tabla de inventario mensual por producto (litros)</h3>`;
-        html += `<div class="table-wrap">${result.tabla_inv || noData}</div>`;
-
-        html += `<h3 class="section-title">Simulación - Métricas Totales (ver unidades específicas)</h3>`;
-        html += `<div class="chart-card"><div id="plot-sim-totales"></div></div>`;
-        html += `<h3 class="section-title">Simulación - Métricas por producto (ver unidades específicas)</h3>`;
-        html += `<div class="chart-card"><div id="plot-sim-productos"></div></div>`;
-        html += `<h3 class="section-title">Simulación - Métricas por estación (ver unidades específicas)</h3>`;
-        html += `<div class="chart-card"><div id="plot-sim-estaciones-util"></div></div>`;
-        html += `<div class="chart-card"><div id="plot-sim-estaciones-wait"></div></div>`;
-
-        html += `<h3 class="section-title">Tablas de la simulación (métricas)</h3>`;
-        html += `<div class="sim-section">`;
-        html += `<div class="sim-table" id="sim-table-totales">${result.df_totales || noData}</div>`;
-        html += `<div class="sim-table" id="sim-table-productos">${result.df_productos || noData}</div>`;
-        html += `<div class="sim-table" id="sim-table-capacidades"><div id="capacity-table-container"></div><div class="row-actions" style="justify-content:flex-start;margin-top:12px;"><button type="button" id="recalc-btn">Recalcular métricas</button></div><div class="muted" id="recalc-status" style="margin-top:6px;"></div></div>`;
-        html += `</div>`;
-
-        resultsEl.innerHTML = html;
         lastResult = result;
         lastPayload = JSON.parse(JSON.stringify(payload));
-        renderCapacityTable(result);
-        attachDownloadHandler();
-        attachRecalcHandler();
 
-        // Render interactive plots if JSON data present
-        try {
-          const plotConfig = { responsive: true, displaylogo: false };
-          if (result.json_agg_table && result.json_agg_table.length) {
-            const agg = result.json_agg_table;
-            const months = agg.map(r => r.Mes);
-            const prodSeries = agg.map(r => roundToTwo(r['P(t)'] || 0));
-            const demSeries = agg.map(r => roundToTwo(r['D(t)'] || 0));
-            const traces = [
-              {
-                x: months,
-                y: prodSeries,
-                name: 'P(t) producción',
-                mode: 'lines+markers',
-                hovertemplate: '%{y:.2f} litros<extra></extra>'
-              },
-              {
-                x: months,
-                y: demSeries,
-                name: 'D(t) demanda',
-                mode: 'lines+markers',
-                hovertemplate: '%{y:.2f} litros<extra></extra>'
-              }
-            ];
-            const layout = {
-              title: 'Comportamiento: Producción vs Demanda',
-              xaxis: { title: 'Mes' },
-              yaxis: { title: 'Volumen [litros]', tickformat: '.2f' },
-              legend: { orientation: 'h', y: -0.2 },
-              height: 360
-            };
-            Plotly.newPlot('plot-demand', traces, layout, plotConfig);
-          }
-          if (result.json_tabla_produccion) {
-            const prodRows = result.json_tabla_produccion;
-            if (prodRows && prodRows.length > 0) {
-              const months = prodRows.map(r => r.Mes || r.index || '');
-              const cols = Object.keys(prodRows[0]).filter(k => k !== 'index' && k !== 'Mes');
-              const traces = cols.map(col => ({
-                x: months,
-                y: prodRows.map(r => roundToTwo(r[col] || 0)),
-                name: col,
-                mode: 'lines+markers',
-                hovertemplate: '%{y:.2f} litros<extra></extra>'
-              }));
-              const layout2 = {
-                title: 'Producción mensual por producto',
-                xaxis: { title: 'Mes' },
-                yaxis: { title: 'Volumen [litros]', tickformat: '.2f' },
-                legend: { orientation: 'h' },
-                height: 360
-              };
-              Plotly.newPlot('plot-desag', traces, layout2, plotConfig);
-            }
-          }
-          if (result.json_sim_totales && result.json_sim_totales.length) {
-            const data = result.json_sim_totales;
-            const metricas = data.map(r => r.Metrica);
-            const medias = data.map(r => roundToTwo(r.Media || 0));
-            const errores = data.map(r => roundToTwo(r.IC95_HW || 0));
-            const traceTot = {
-              type: 'bar',
-              x: metricas,
-              y: medias,
-              marker: { color: '#0f62fe' },
-              error_y: { type: 'data', array: errores, visible: true, thickness: 1.5 },
-              hovertemplate: '%{x}: %{y:.2f}<extra></extra>'
-            };
-            const layoutTot = {
-              title: 'Métricas agregadas de la simulación',
-              xaxis: { title: 'Métrica' },
-              yaxis: { title: 'Valor medio', tickformat: '.2f' },
-              height: 360
-            };
-            Plotly.newPlot('plot-sim-totales', [traceTot], layoutTot, plotConfig);
-          }
-          if (result.json_sim_productos && result.json_sim_productos.length) {
-            const dataProd = result.json_sim_productos;
-            const productos = dataProd.map(r => r.Producto);
-            const metricConfigs = [
-              { key: 'Throughput_media', err: 'Throughput_HW', label: 'Throughput (lotes/día)', axis: 'Throughput [lotes/día]' },
-              { key: 'CycleTime_media_min', err: 'CycleTime_HW', label: 'Cycle time (min)', axis: 'Cycle time [min]' },
-              { key: 'WIP_media', err: 'WIP_HW', label: 'WIP (lotes)', axis: 'WIP [lotes]' },
-              { key: 'TaktTime_media_min', err: 'TaktTime_HW', label: 'Takt time (min/lote)', axis: 'Takt time [min/lote]' },
-              { key: 'Entradas_365d_media', err: 'Entradas_365d_HW', label: 'Entradas en 365d (lotes)', axis: 'Entradas [lotes]' }
-            ];
-            const tracesProd = metricConfigs.map((cfg, idx) => ({
-              type: 'bar',
-              x: productos,
-              y: dataProd.map(r => roundToTwo(r[cfg.key] || 0)),
-              error_y: { type: 'data', array: dataProd.map(r => roundToTwo(r[cfg.err] || 0)), visible: true },
-              name: cfg.label,
-              hovertemplate: '%{y:.2f}<extra></extra>',
-              visible: idx === 0
-            }));
-            const buttons = metricConfigs.map((cfg, idx) => ({
-              label: cfg.label,
-              method: 'update',
-              args: [
-                { visible: tracesProd.map((_, i) => i === idx) },
-                { title: `Simulación - ${cfg.label}`, yaxis: { title: cfg.axis, tickformat: '.2f' } }
-              ]
-            }));
-            const layoutProd = {
-              title: `Simulación - ${metricConfigs[0].label}`,
-              xaxis: { title: 'Producto' },
-              yaxis: { title: metricConfigs[0].axis, tickformat: '.2f' },
-              updatemenus: [{
-                x: 0.5,
-                y: 1.25,
-                xanchor: 'center',
-                yanchor: 'top',
-                direction: 'down',
-                showactive: true,
-                buttons
-              }],
-              showlegend: false,
-              height: 360
-            };
-            Plotly.newPlot('plot-sim-productos', tracesProd, layoutProd, plotConfig);
-          }
-          if (result.json_sim_estaciones && result.json_sim_estaciones.length) {
-            const dataEst = result.json_sim_estaciones;
-            const estaciones = dataEst.map(r => r.Estacion);
-            if (estaciones.length) {
-              const utilValues = dataEst.map(r => roundToTwo(r.Utilizacion_media || 0));
-              const utilErrors = dataEst.map(r => roundToTwo(r.Utilizacion_HW || 0));
-              const maxUtil = utilValues.length ? Math.max(...utilValues) : 1;
-              const utilTrace = {
-                type: 'bar',
-                x: estaciones,
-                y: utilValues,
-                error_y: { type: 'data', array: utilErrors, visible: true },
-                marker: { color: '#3d70ff' },
-                hovertemplate: '%{y:.2%}<extra></extra>'
-              };
-              const layoutUtil = {
-                title: 'Simulación - Utilización por estación',
-                xaxis: { title: 'Estación' },
-                yaxis: { title: 'Utilización', tickformat: '.2%', range: [0, Math.min(1, maxUtil + 0.1)] },
-                showlegend: false,
-                height: 360
-              };
-              Plotly.newPlot('plot-sim-estaciones-util', [utilTrace], layoutUtil, plotConfig);
-            }
-            const waitValues = dataEst.map(r => roundToTwo(r.Espera_media_min || 0));
-            const waitErrors = dataEst.map(r => roundToTwo(r.Espera_HW || 0));
-            const waitTrace = {
-              type: 'bar',
-              x: estaciones,
-              y: waitValues,
-              error_y: { type: 'data', array: waitErrors, visible: true },
-              marker: { color: '#ff832b' }
-            };
-            const layoutWait = {
-              title: 'Simulación - Espera media por estación',
-              xaxis: { title: 'Estación' },
-              yaxis: { title: 'Espera [min]' },
-              showlegend: false,
-              height: 360
-            };
-            Plotly.newPlot('plot-sim-estaciones-wait', [waitTrace], layoutWait, plotConfig);
-          }
-        } catch (errplot) {
-          console.warn('Error al renderizar plots interactivos:', errplot);
-        }
+        renderResults(result);
       } catch (err) {
-        resultsEl.innerHTML = `<div class="alert"><strong>Ocurrió un error:</strong> ${err}</div>`;
+        resultsEl.innerHTML = `<div class="glass-card p-6 border-red-500/50 text-red-400"><strong>Error:</strong> ${err.message}</div>`;
       }
+    });
+
+    function renderResults(result) {
+      const resultsEl = document.getElementById('results');
+
+      let html = `
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-light text-white">Resultados de la Simulación</h2>
+                    <button class="px-4 py-2 border border-brand-500/50 hover:bg-brand-500/20 text-brand-300 rounded-lg transition-colors flex gap-2 items-center text-sm neon-glow" onclick="alert('Funcionalidad de exportación a implementar')">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                        Descargar Excel
+                    </button>
+                </div>
+
+                <!-- KPI Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                    <div class="glass-card p-5 border-t-2 border-t-brand-500">
+                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Estado</p>
+                        <p class="text-xl font-semibold text-green-400">${result.status || 'Éxito'}</p>
+                    </div>
+                    <div class="glass-card p-5 border-t-2 border-t-accent-500">
+                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Valor Objetivo (Z)</p>
+                        <p class="text-2xl font-bold text-white">${formatCurrency(result.z)}</p>
+                    </div>
+                    <div class="glass-card p-5">
+                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Demanda Total</p>
+                        <p class="text-xl font-semibold text-gray-200">Ver Detalles</p>
+                    </div>
+                    <div class="glass-card p-5">
+                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Producción Total</p>
+                        <p class="text-xl font-semibold text-gray-200">Ver Detalles</p>
+                    </div>
+                </div>
+
+                <!-- Charts -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                    <div class="glass-card p-4">
+                        <h3 class="text-sm font-medium text-gray-300 mb-2">Demanda vs Producción</h3>
+                        <div id="plot-demand" class="w-full h-80"></div>
+                    </div>
+                    <div class="glass-card p-4">
+                        <h3 class="text-sm font-medium text-gray-300 mb-2">Métricas de Simulación por Producto</h3>
+                        <div id="plot-sim-productos" class="w-full h-80"></div>
+                    </div>
+                </div>
+
+                <!-- Data Tables -->
+                <div class="grid grid-cols-1 gap-6">
+                    <div class="glass-card p-4 overflow-hidden flex flex-col">
+                        <h3 class="text-sm font-medium text-gray-300 mb-4">Plan Agregado</h3>
+                        <div class="overflow-x-auto">
+                            ${result.tabla_desag || '<div class="text-gray-500">Sin datos</div>'}
+                        </div>
+                    </div>
+                    <div class="glass-card p-4 overflow-hidden flex flex-col">
+                        <h3 class="text-sm font-medium text-gray-300 mb-4">Producción por Producto</h3>
+                        <div class="overflow-x-auto">
+                            ${result.tabla_prod || '<div class="text-gray-500">Sin datos</div>'}
+                        </div>
+                    </div>
+                    <div class="glass-card p-4 overflow-hidden flex flex-col">
+                        <h3 class="text-sm font-medium text-gray-300 mb-4">Utilización de Estaciones</h3>
+                        <div class="overflow-x-auto">
+                            ${result.df_estaciones || '<div class="text-gray-500">Sin datos</div>'}
+                        </div>
+                    </div>
+                </div>
+            `;
+      resultsEl.innerHTML = html;
+
+      renderPlots(result);
     }
 
-    document.getElementById('run-btn').addEventListener('click', runSimulation);
+    function renderPlots(result) {
+      const plotConfig = { responsive: true, displaylogo: false };
+      const darkLayout = {
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: { color: '#94a3b8' },
+        xaxis: { gridcolor: 'rgba(255,255,255,0.05)', zerolinecolor: 'rgba(255,255,255,0.1)' },
+        yaxis: { gridcolor: 'rgba(255,255,255,0.05)', zerolinecolor: 'rgba(255,255,255,0.1)' },
+        margin: { l: 40, r: 20, t: 30, b: 40 }
+      };
+
+      if (result.json_agg_table) {
+        const dates = result.json_agg_table.map(r => r.Mes);
+        const prod = result.json_agg_table.map(r => r['P(t)']);
+        const dem = result.json_agg_table.map(r => r['D(t)']);
+
+        Plotly.newPlot('plot-demand', [
+          { x: dates, y: prod, name: 'Producción', fill: 'tozeroy', type: 'scatter', line: { color: '#8b5cf6' }, fillcolor: 'rgba(139,92,246,0.2)' },
+          { x: dates, y: dem, name: 'Demanda', type: 'scatter', line: { color: '#38bdf8', dash: 'dot' } }
+        ], { ...darkLayout, showlegend: true, legend: { orientation: 'h', y: 1.1 } }, plotConfig);
+      }
+
+      if (result.json_sim_productos) {
+        const prods = result.json_sim_productos.map(r => r.Producto);
+        const wip = result.json_sim_productos.map(r => r.WIP_media);
+
+        Plotly.newPlot('plot-sim-productos', [
+          { x: prods, y: wip, type: 'bar', marker: { color: '#0ea5e9', opacity: 0.8, line: { color: '#38bdf8', width: 1 } } }
+        ], { ...darkLayout, yaxis: { title: 'WIP (Lotes)' } }, plotConfig);
+      }
+    }
   </script>
 </body>
+
 </html>

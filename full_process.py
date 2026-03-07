@@ -1,28 +1,3 @@
-"""
-full_process.py
-
-This module defines a single convenience function, `run_full_process`, which
-combines the end‑to‑end production planning, inventory optimisation and
-simulation workflow defined in the original notebook.  The function is
-parametrised so that the user can easily change key inputs (e.g., demand
-data, inventory proportions, processing times, cost coefficients and
-simulation settings) and obtain aggregated and disaggregated production
-schedules along with discrete-event simulation metrics.  To verify that
-the function works correctly the defaults in `__main__` reproduce the
-example found in the question.
-
-Usage:
-    from full_process import run_full_process
-    results = run_full_process(data, ...)
-
-The `results` dictionary contains Pandas DataFrames for the aggregated
-schedule, disaggregated schedule, inventory and production tables, as well
-as simulation summaries (totals, per product and per station).  When
-`make_plots=True`, Matplotlib figures are returned in the dictionary too.
-
-Author: OpenAI ChatGPT
-"""
-
 import numpy as np
 import pandas as pd
 import random
@@ -536,29 +511,7 @@ def desagregado_optimo(
 
 
 class Simulator:
-    """Discrete‑event simulator for the bottling line with four stations.
 
-    The simulator models five product types flowing through four stations in series.
-    Each entity represents a batch (100 bottles = 300 litres).  Entities arrive
-    according to a schedule derived from the production plan and are processed
-    sequentially at each station with service times drawn from uniform or
-    Gaussian distributions as defined in `service_params`.  Finished
-    batches accumulate in a final hold queue until at least `batch_size` are
-    available, at which point they are released simultaneously.  The horizon
-    is measured in minutes (default 365 days).
-
-    Parameters
-    ----------
-    capacities : list of int
-        Capacity (number of parallel machines) for each station [E1, E2, E3, E4].
-    horizon : float, optional
-        Simulation horizon in minutes (default: 365*1440).
-    batch_size : int, optional
-        Number of entities required to release a batch from the hold area.
-    service_params : dict, optional
-        Dictionary specifying min/max (or mean/SD) service times per station and
-        product type.  See original notebook for keys.
-    """
     def __init__(self, capacities, horizon=365*1440, batch_size=28, service_params=None):
         self.capacities = capacities
         self.horizon = float(horizon)
@@ -779,13 +732,7 @@ class Simulator:
         }
 
 def dimension_stations(base_cap=[1,1,1,1], test_caps=[1,2,3,4], reps=3, service_params=None, schedule_tia=None):
-    """Determine minimal station capacities satisfying utilisation and wait thresholds.
 
-    For each station sequentially, test capacities from `test_caps` using the
-    simulator and pick the smallest capacity that yields utilisation ≤ 0.85
-    and mean wait ≤ 200 minutes on average across `reps` replications.  The
-    schedule required by the simulator must be passed via `schedule_tia`.
-    """
     dims = base_cap.copy()
     for st in range(4):
         chosen = test_caps[-1]
@@ -827,29 +774,7 @@ def run_experiment(
     schedule_tia=None,
     custom_capacities=None
 ):
-    """Run multiple simulation replications and return summary tables (and optionally plots).
-    
-    Parameters
-    ----------
-    return_tables : bool
-        Whether to return the summary DataFrames.
-    make_plots : bool
-        Whether to generate Matplotlib figures (returned in the result dictionary).
-    reps : int
-        Number of simulation replications.
-    verbose : bool
-        Print intermediate messages (capacities chosen and number of replications).
-    service_params : dict
-        Parameters governing service time distributions (see Simulator).
-    schedule_tia : list of lists
-        Time between arrivals schedule: schedule_tia[p][m] gives the interarrival
-        time for product p during month m (0-11).  This is required to run the
-        simulator and to dimension stations.
-    custom_capacities : list of float or int, optional
-        Capacities to force for each station [E1, E2, E3, E4]. When provided,
-        the simulation uses these values but still reports the ideal (dimensioned)
-        capacities for referencia.
-    """
+
     # determine station capacities
     recommended = dimension_stations(service_params=service_params, schedule_tia=schedule_tia)
     capacities_to_use = recommended
@@ -1011,43 +936,7 @@ def run_full_process(
     capacidades_override=None,
     reps: int=10, verbose: bool=True
 ):
-    """Run the entire workflow: optimisation (aggregated & disaggregated) and simulation.
 
-    Parameters
-    ----------
-    data : dict
-        Dictionary mapping month names to lists of demands per product.
-    p_inv_inicial : float
-        Proportion of average monthly demand kept as initial inventory.
-    p_inv_final : float
-        Proportion of average monthly demand required as final inventory in December.
-    tiempos_procesos : dict
-        Dictionary of process times with keys matching those in the original model.
-    unidad : float
-        Conversion factor (e.g., litres per unit or seconds per litre).
-    use_no_consecutive, use_safe_stock, use_smooth : bool
-        Flags to activate optional constraints in the aggregated model. The
-        safety stock option keeps inventories proportional to next month's demand.
-    ct, ht, pit, crt, cot, cwt, cwt_prima : floats
-        Cost coefficients for production, inventory, shortages, labour and capacity adjustments.
-    graficar : bool
-        Whether to generate a production/demand plot in the aggregated model (saved as file).
-    costo_prod, costo_inv : float
-        Cost coefficients for production and inventory in the disaggregated model.
-    capacidades_override : list, optional
-        Capacidades personalizadas para las estaciones en la simulación.
-    return_tables, make_plots, reps, verbose : control flags for the simulation experiment.
-
-    Returns
-    -------
-    dict
-        A dictionary containing intermediate and final results:
-        - aggregated model results (key 'agg')
-        - disaggregated model results (key 'disagg')
-        - inventory and production tables (keys 'tabla_inventario', 'tabla_produccion')
-        - simulation tables (keys 'sim_totales', 'sim_productos', 'sim_estaciones')
-        - optional figures under 'figs' if make_plots=True.
-    """
     # --- Step 1: Aggregate demand and compute initial/final stock ---
     totals = {month: sum(values) for month, values in data.items()}
     avg_sales = np.mean(list(totals.values()))
