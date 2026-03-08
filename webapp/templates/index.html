@@ -220,22 +220,184 @@
             </tbody>
           </table>
         </div>
+        <div class="mt-4 flex gap-2 justify-end">
+          <button id="btn-remove-month"
+            class="px-3 py-1.5 border border-red-500/50 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors flex gap-1 items-center text-xs">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+            </svg>
+            Eliminar Último
+          </button>
+          <button id="btn-add-month"
+            class="px-3 py-1.5 border border-brand-500/50 hover:bg-brand-500/20 text-brand-300 rounded-lg transition-colors flex gap-1 items-center text-xs">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            Agregar Mes
+          </button>
+        </div>
       </div>
 
       <!-- Process Times -->
       <div id="times-section" class="glass-card p-6 col-span-1 flex flex-col">
         <h3 class="text-lg font-semibold text-white mb-4">Tiempos de Proceso (min)</h3>
-        <div class="overflow-y-auto flex-1 pr-2">
-          <div class="grid grid-cols-2 gap-3">
-            {% for key, val in default_times.items() %}
-            <div class="flex flex-col">
-              <label class="text-[10px] uppercase tracking-wider text-gray-400 mb-1 truncate" title="{{ key }}">{{ key
-                }}</label>
-              <input type="number" step="0.1" min="0" id="time-{{ key }}" value="{{ val }}" data-default="{{ val }}"
-                class="input-glass text-sm" />
+        <div class="overflow-y-auto flex-1 pr-4 space-y-6 custom-scrollbar">
+
+          <!-- Recepción y mezcla -->
+          <div>
+            <div class="mb-3">
+              <h4 class="text-sm font-medium text-brand-400">Recepción y mezcla de ingredientes</h4>
             </div>
-            {% endfor %}
+            <div class="grid grid-cols-2 gap-3">
+              <div class="flex flex-col">
+                <label class="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Mínimo</label>
+                <input type="number" step="0.1" min="0" id="time-min_firstS" value="{{ default_times['min_firstS'] }}"
+                  data-default="{{ default_times['min_firstS'] }}" class="input-glass text-sm" />
+              </div>
+              <div class="flex flex-col">
+                <label class="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Máximo</label>
+                <input type="number" step="0.1" min="0" id="time-max_firstS" value="{{ default_times['max_firstS'] }}"
+                  data-default="{{ default_times['max_firstS'] }}" class="input-glass text-sm" />
+              </div>
+            </div>
           </div>
+
+          <!-- Pasteurización y enfriamiento -->
+          <div>
+            <div class="mb-3">
+              <h4 class="text-sm font-medium text-brand-400">Pasteurización y enfriamiento</h4>
+            </div>
+
+            <div class="space-y-4">
+              <!-- Energizantes -->
+              <div>
+                <p class="text-[11px] text-gray-300 font-medium mb-1">1. Energizantes</p>
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="flex flex-col">
+                    <label class="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Mínimo</label>
+                    <input type="number" step="0.1" min="0" id="time-min_pas1" value="{{ default_times['min_pas1'] }}"
+                      data-default="{{ default_times['min_pas1'] }}" class="input-glass text-sm" />
+                  </div>
+                  <div class="flex flex-col">
+                    <label class="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Máximo</label>
+                    <input type="number" step="0.1" min="0" id="time-max_pas1" value="{{ default_times['max_pas1'] }}"
+                      data-default="{{ default_times['max_pas1'] }}" class="input-glass text-sm" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Isotónicas -->
+              <div>
+                <p class="text-[11px] text-gray-300 font-medium mb-1">2. Isotónicas</p>
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="flex flex-col">
+                    <label class="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Mínimo</label>
+                    <input type="number" step="0.1" min="0" id="time-min_pas2" value="{{ default_times['min_pas2'] }}"
+                      data-default="{{ default_times['min_pas2'] }}" class="input-glass text-sm" />
+                  </div>
+                  <div class="flex flex-col">
+                    <label class="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Máximo</label>
+                    <input type="number" step="0.1" min="0" id="time-max_pas2" value="{{ default_times['max_pas2'] }}"
+                      data-default="{{ default_times['max_pas2'] }}" class="input-glass text-sm" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Agua Saborizada -->
+              <div>
+                <p class="text-[11px] text-gray-300 font-medium mb-1">3. Agua Saborizada</p>
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="flex flex-col">
+                    <label class="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Mínimo</label>
+                    <input type="number" step="0.1" min="0" id="time-min_pas3" value="{{ default_times['min_pas3'] }}"
+                      data-default="{{ default_times['min_pas3'] }}" class="input-glass text-sm" />
+                  </div>
+                  <div class="flex flex-col">
+                    <label class="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Máximo</label>
+                    <input type="number" step="0.1" min="0" id="time-max_pas3" value="{{ default_times['max_pas3'] }}"
+                      data-default="{{ default_times['max_pas3'] }}" class="input-glass text-sm" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Té -->
+              <div>
+                <p class="text-[11px] text-gray-300 font-medium mb-1">4. Té</p>
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="flex flex-col">
+                    <label class="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Mínimo</label>
+                    <input type="number" step="0.1" min="0" id="time-min_pas4" value="{{ default_times['min_pas4'] }}"
+                      data-default="{{ default_times['min_pas4'] }}" class="input-glass text-sm" />
+                  </div>
+                  <div class="flex flex-col">
+                    <label class="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Máximo</label>
+                    <input type="number" step="0.1" min="0" id="time-max_pas4" value="{{ default_times['max_pas4'] }}"
+                      data-default="{{ default_times['max_pas4'] }}" class="input-glass text-sm" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Jugo -->
+              <div>
+                <p class="text-[11px] text-gray-300 font-medium mb-1">5. Jugo</p>
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="flex flex-col">
+                    <label class="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Mínimo</label>
+                    <input type="number" step="0.1" min="0" id="time-min_pas5" value="{{ default_times['min_pas5'] }}"
+                      data-default="{{ default_times['min_pas5'] }}" class="input-glass text-sm" />
+                  </div>
+                  <div class="flex flex-col">
+                    <label class="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Máximo</label>
+                    <input type="number" step="0.1" min="0" id="time-max_pas5" value="{{ default_times['max_pas5'] }}"
+                      data-default="{{ default_times['max_pas5'] }}" class="input-glass text-sm" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Llenado y sellado -->
+          <div>
+            <div class="mb-3">
+              <h4 class="text-sm font-medium text-brand-400">Llenado y sellado de botellas</h4>
+            </div>
+
+            <div class="space-y-4">
+              <div>
+                <p class="text-[11px] text-gray-300 font-medium mb-1">Llenado (Fill)</p>
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="flex flex-col">
+                    <label class="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Mínimo</label>
+                    <input type="number" step="0.1" min="0" id="time-min_fill" value="{{ default_times['min_fill'] }}"
+                      data-default="{{ default_times['min_fill'] }}" class="input-glass text-sm" />
+                  </div>
+                  <div class="flex flex-col">
+                    <label class="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Máximo</label>
+                    <input type="number" step="0.1" min="0" id="time-max_fill" value="{{ default_times['max_fill'] }}"
+                      data-default="{{ default_times['max_fill'] }}" class="input-glass text-sm" />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <p class="text-[11px] text-gray-300 font-medium mb-1">Sellado (Label)</p>
+                <div class="grid grid-cols-2 gap-3">
+                  <div class="flex flex-col">
+                    <label class="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Mínimo</label>
+                    <input type="number" step="0.1" min="0" id="time-min_label" value="{{ default_times['min_label'] }}"
+                      data-default="{{ default_times['min_label'] }}" class="input-glass text-sm" />
+                  </div>
+                  <div class="flex flex-col">
+                    <label class="text-[10px] uppercase tracking-wider text-gray-400 mb-1">Máximo</label>
+                    <input type="number" step="0.1" min="0" id="time-max_label" value="{{ default_times['max_label'] }}"
+                      data-default="{{ default_times['max_label'] }}" class="input-glass text-sm" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
         </div>
       </div>
 
@@ -244,63 +406,93 @@
         <h3 class="text-lg font-semibold text-white mb-4">Parámetros de Simulación</h3>
         <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
           <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
-              title="Inv Inicial">p_inv_inicial</label><input id="p_inv_inicial" type="number" step="0.01" min="0"
-              value="0.25" data-default="0.25" class="input-glass" /></div>
+              title="Porcentaje de las ventas promedio usado como inventario inicial">Inv. Inicial (%)</label><input
+              id="p_inv_inicial" type="number" step="0.01" min="0" value="0.25" data-default="0.25"
+              class="input-glass" /></div>
           <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
-              title="Inv Final">p_inv_final</label><input id="p_inv_final" type="number" step="0.01" min="0"
-              value="0.10" data-default="0.10" class="input-glass" /></div>
-          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1" title="Unidad">unidad
+              title="Porcentaje de las ventas promedio usado como inventario final deseado">Inv. Final (%)</label><input
+              id="p_inv_final" type="number" step="0.01" min="0" value="0.10" data-default="0.10" class="input-glass" />
+          </div>
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
+              title="Tamaño de unidad en litros para los cálculos">Unidad
               (L)</label><input id="unidad" type="number" step="0.1" min="1" value="3" data-default="3"
               class="input-glass" /></div>
-          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1" title="Costo Prod">ct
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
+              title="Costo de producción por unidad en horario regular">Costo Producción
               ($)</label><input id="ct" type="number" step="1" min="0" value="578" data-default="578"
               class="input-glass" /></div>
-          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1" title="Costo Inv">ht
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
+              title="Costo de mantener una unidad en inventario por periodo">Costo Inventario
               ($)</label><input id="ht" type="number" step="1" min="0" value="145" data-default="145"
               class="input-glass" /></div>
-          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1" title="Penalización">pit
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
+              title="Costo por escasez o demanda insatisfecha por unidad">Penalización Escasez
               ($)</label><input id="pit" type="number" step="1" min="0" value="10000000" data-default="10000000"
               class="input-glass" /></div>
-          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1" title="Hora regular">crt
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
+              title="Costo por hora de trabajo en jornada regular">Hora Regular
               ($)</label><input id="crt" type="number" step="0.1" min="0" value="5931.25" data-default="5931.25"
               class="input-glass" /></div>
-          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1" title="Hora extra">cot
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
+              title="Costo por hora de trabajo en horas extras">Hora Extra
               ($)</label><input id="cot" type="number" step="0.1" min="0" value="5931.25" data-default="5931.25"
               class="input-glass" /></div>
-          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1" title="Contratar">cwt
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
+              title="Costo asociado a contratar un nuevo trabajador">Costo Contratar
               ($)</label><input id="cwt" type="number" step="0.1" min="0" value="5931.25" data-default="5931.25"
               class="input-glass" /></div>
-          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1" title="Despedir">cwt_prima
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
+              title="Costo asociado a despedir un trabajador">Costo Despedir
               ($)</label><input id="cwt_prima" type="number" step="0.1" min="0" value="5931.25" data-default="5931.25"
               class="input-glass" /></div>
           <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
-              title="Costo desag">costo_prod</label><input id="costo_prod" type="number" step="0.1" min="0" value="1.0"
-              data-default="1.0" class="input-glass" /></div>
+              title="Costo unitario de producción usado en modelo de desagregación">Costo Prod. Desag.</label><input
+              id="costo_prod" type="number" step="0.1" min="0" value="1.0" data-default="1.0" class="input-glass" />
+          </div>
           <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
-              title="Costo inv desag">costo_inv</label><input id="costo_inv" type="number" step="0.1" min="0"
-              value="0.25" data-default="0.25" class="input-glass" /></div>
+              title="Costo unitario de inventario usado en modelo de desagregación">Costo Inv. Desag.</label><input
+              id="costo_inv" type="number" step="0.1" min="0" value="0.25" data-default="0.25" class="input-glass" />
+          </div>
           <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
-              title="Réplicas">reps</label><input id="reps" type="number" step="1" min="1" value="10" data-default="10"
+              title="Número de veces que correrá la simulación de colas para promedio de métricas (mayor número = mayor tiempo pero más precisión)">Réplicas
+              Sim.</label><input id="reps" type="number" step="1" min="1" value="10" data-default="10"
               class="input-glass" /></div>
 
-          <div class="col-span-2 md:col-span-4 lg:col-span-3 grid grid-cols-2 gap-4 mt-2">
-            <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer"><input type="checkbox"
-                id="use_no_consecutive" class="form-checkbox text-brand-500 rounded bg-black/20 border-white/20"> No
-              consecutivos</label>
-            <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer"><input type="checkbox"
-                id="use_safe_stock" class="form-checkbox text-brand-500 rounded bg-black/20 border-white/20"> Inv.
-              seguridad</label>
-            <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer"><input type="checkbox"
-                id="use_smooth" class="form-checkbox text-brand-500 rounded bg-black/20 border-white/20">
-              Suavización</label>
-            <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hidden"><input type="checkbox"
-                id="graficar" checked> Graficar</label>
-            <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hidden"><input type="checkbox"
-                id="return_tables" checked> Tablas</label>
-            <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hidden"><input type="checkbox"
-                id="make_plots" checked> Plots</label>
-            <label class="flex items-center gap-2 text-sm text-gray-300 cursor-pointer hidden"><input type="checkbox"
-                id="verbose" checked> Verbose</label>
+          <div
+            class="col-span-2 md:col-span-4 lg:col-span-6 grid grid-cols-1 md:grid-cols-3 gap-6 mt-4 p-4 border border-white/10 rounded-xl bg-white/5">
+            <div class="flex flex-col space-y-2">
+              <label class="flex items-center gap-2 text-sm text-gray-300 font-medium cursor-pointer"
+                title="Evita programar producción en meses no consecutivos"><input type="checkbox"
+                  id="use_no_consecutive" class="form-checkbox text-brand-500 rounded bg-black/20 border-white/20">
+                Evitar Meses No Consecutivos</label>
+            </div>
+            <div class="flex flex-col space-y-2 border-l border-white/10 pl-6">
+              <label class="flex items-center gap-2 text-sm text-gray-300 font-medium cursor-pointer"
+                title="Activa un inventario de seguridad basado en el error estándar de la demanda"><input
+                  type="checkbox" id="use_safe_stock"
+                  class="form-checkbox text-brand-500 rounded bg-black/20 border-white/20"> Usar Inventario
+                Seguridad</label>
+              <div id="alpha-container" class="flex flex-col hidden mt-2">
+                <label class="text-[10px] uppercase text-gray-400 mb-1"
+                  title="Factor Alpha usado para calcular el inventario de seguridad">Factor Alpha</label>
+                <input id="alpha" type="number" step="0.01" min="0" value="0.5" data-default="0.5"
+                  class="input-glass text-xs p-1 h-8" />
+              </div>
+            </div>
+            <div class="flex flex-col space-y-2 border-l border-white/10 pl-6">
+              <label class="flex items-center gap-2 text-sm text-gray-300 font-medium cursor-pointer"
+                title="Aplica suavización a la producción para no tener saltos abruptos entre meses"><input
+                  type="checkbox" id="use_smooth"
+                  class="form-checkbox text-brand-500 rounded bg-black/20 border-white/20"> Suavización de
+                Producción</label>
+              <div id="smooth-pct-container" class="flex flex-col hidden mt-2">
+                <label class="text-[10px] uppercase text-gray-400 mb-1"
+                  title="Porcentaje de cambio máximo de producción permitido mes a mes">Porcentaje Suavización
+                  (±)</label>
+                <input id="smooth_pct" type="number" step="0.01" min="0" max="1" value="0.20" data-default="0.20"
+                  class="input-glass text-xs p-1 h-8" />
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -378,8 +570,67 @@
       }
     });
 
+    // Control Condicionales
+    document.getElementById('use_safe_stock').addEventListener('change', (e) => {
+      document.getElementById('alpha-container').classList.toggle('hidden', !e.target.checked);
+    });
+    document.getElementById('use_smooth').addEventListener('change', (e) => {
+      document.getElementById('smooth-pct-container').classList.toggle('hidden', !e.target.checked);
+    });
+
+    // Control de Matriz de Demanda (Agregar / Eliminar Mes)
+    const allMonths = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+
+    document.getElementById('btn-add-month').addEventListener('click', () => {
+      const tbody = document.querySelector('#data-table tbody');
+      const currentRows = tbody.querySelectorAll('tr').length;
+
+      if (currentRows >= 12) {
+        alert("No se puede pasar de Diciembre.");
+        return;
+      }
+
+      const nextMonthName = allMonths[currentRows];
+      const newRow = document.createElement('tr');
+      newRow.setAttribute('data-month', nextMonthName);
+
+      let cellsHtml = `<td class="text-left font-medium text-gray-300">${nextMonthName}</td>`;
+      for (let i = 0; i < 5; i++) {
+        cellsHtml += `
+          <td>
+            <input type="number" min="0" step="1" data-month="${nextMonthName}" data-prod="${i}"
+              value="0" data-default="0" class="input-glass text-center text-xs" />
+          </td>
+        `;
+      }
+      newRow.innerHTML = cellsHtml;
+      tbody.appendChild(newRow);
+    });
+
+    document.getElementById('btn-remove-month').addEventListener('click', () => {
+      const tbody = document.querySelector('#data-table tbody');
+      const rows = tbody.querySelectorAll('tr');
+
+      // No se puede quitar antes de Febrero (es decir, siempre debe quedar Enero como mínimo)
+      if (rows.length <= 1) {
+        alert("Enero es requerido. No se pueden eliminar más meses.");
+        return;
+      }
+
+      tbody.removeChild(rows[rows.length - 1]);
+    });
+
     // Run Simulation
     document.getElementById('run-btn').addEventListener('click', async () => {
+      // Validaciones de compatibilidad de opciones
+      if (document.getElementById('use_no_consecutive').checked && document.getElementById('use_smooth').checked) {
+        alert("Matemáticamente imposible: No se puede resolver el modelo si activas 'Evitar Meses No Consecutivos' y 'Suavización de Producción' al mismo tiempo.\n\nLa primera obliga a detener la producción (caída del 100%), mientras que la segunda prohíbe cambios abruptos. Por favor, desactiva una de las dos.");
+        return;
+      }
+
       const data = {};
       document.querySelectorAll('#data-table tbody tr').forEach(row => {
         const month = row.getAttribute('data-month');
@@ -410,21 +661,53 @@
         use_no_consecutive: document.getElementById('use_no_consecutive').checked,
         use_safe_stock: document.getElementById('use_safe_stock').checked,
         use_smooth: document.getElementById('use_smooth').checked,
+        alpha: fallbackNumber(document.getElementById('alpha')),
+        smooth_pct: fallbackNumber(document.getElementById('smooth_pct')),
         graficar: true, return_tables: true, make_plots: true, verbose: true
       };
 
       const resultsEl = document.getElementById('results');
-      resultsEl.innerHTML = `
-                <div class="flex items-center justify-center p-12">
-                    <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-500"></div>
-                    <span class="ml-4 text-brand-400 font-medium">Ejecutando Modelo de Simulación Complejo...</span>
-                </div>`;
+
+      // Función para actualizar mensajes de progreso
+      const setProgress = (text) => {
+        resultsEl.innerHTML = `
+          <div class="flex items-center justify-center p-12 flex-col">
+            <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-500 mb-4"></div>
+            <span class="text-brand-400 font-medium text-lg">${text}</span>
+            <p class="text-[11px] text-gray-500 mt-2 uppercase tracking-widest animate-pulse">Este proceso puede tardar unos segundos...</p>
+          </div>`;
+      };
+
+      setProgress("Iniciando Modelos Matemáticos...");
+
+      // Simulación de pasos para feedback al usuario
+      const progressSteps = [
+        "Resolviendo Modelo Agregado (PuLP)...",
+        "Disagregando Demanda por Producto...",
+        "Calculando Inventarios Óptimos...",
+        "Corriendo Réplicas de Simulación de Colas...",
+        "Generando Matrices de Resultados y Gráficos...",
+        "Finalizando Reporte Ejecutivo..."
+      ];
+
+      let stepIdx = 0;
+      const progressInterval = setInterval(() => {
+        if (stepIdx < progressSteps.length) {
+          setProgress(progressSteps[stepIdx]);
+          stepIdx++;
+        } else {
+          clearInterval(progressInterval);
+        }
+      }, 1500);
 
       try {
         const res = await fetch('/run', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
         });
         const result = await res.json();
+
+        clearInterval(progressInterval); // Detener el intervalo si la respuesta llega rápido
+
         if (!res.ok || result.error) throw new Error(result.error || 'Error desconocido');
 
         lastResult = result;
@@ -432,6 +715,7 @@
 
         renderResults(result);
       } catch (err) {
+        clearInterval(progressInterval);
         resultsEl.innerHTML = `<div class="glass-card p-6 border-red-500/50 text-red-400"><strong>Error:</strong> ${err.message}</div>`;
       }
     });
