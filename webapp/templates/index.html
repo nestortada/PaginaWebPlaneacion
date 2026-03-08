@@ -101,6 +101,26 @@
     ::-webkit-scrollbar-thumb:hover {
       background: rgba(255, 255, 255, 0.2);
     }
+
+    #params-section>.grid {
+      justify-items: center;
+    }
+
+    #params-section>.grid>.flex.flex-col {
+      width: 100%;
+      max-width: 220px;
+    }
+
+    #params-section>.grid>.flex.flex-col>label {
+      min-height: 2.2rem;
+      line-height: 1.1;
+      display: flex;
+      align-items: flex-end;
+    }
+
+    #params-section>.grid>.flex.flex-col>input {
+      text-align: center;
+    }
   </style>
 </head>
 
@@ -123,7 +143,7 @@
         </svg>
         Panel Principal
       </a>
-      <a href="#demand-section"
+      <a href="#" data-open-demand-modal
         class="flex items-center gap-3 px-4 py-3 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -202,54 +222,118 @@
         </div>
       </div>
 
-      <!-- Demand Matrix -->
-      <div id="demand-section"
-        class="glass-card p-6 col-span-1 lg:col-span-2 xl:col-span-2 overflow-hidden flex flex-col">
-        <h3 class="text-lg font-semibold text-white mb-4">Matriz de Demanda</h3>
-        <div class="overflow-x-auto flex-1">
-          <table id="data-table" class="w-full table-glass text-sm">
-            <thead>
-              <tr>
-                <th class="text-left">Mes</th>
-                <th title="Energizante">Energizante</th>
-                <th title="Isotónica">Isotónica</th>
-                <th title="Agua saborizada">Agua sab.</th>
-                <th title="Té">Té</th>
-                <th title="Jugo">Jugo</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for month in month_order %}
-              {% set values = default_data[month] %}
-              <tr data-month="{{ month }}">
-                <td class="text-left font-medium text-gray-300">{{ month }}</td>
-                {% for idx in range(5) %}
-                <td>
-                  <input type="number" min="0" step="1" data-month="{{ month }}" data-prod="{{ idx }}"
-                    value="{{ values[idx] }}" data-default="{{ values[idx] }}"
-                    class="input-glass text-center text-xs" />
-                </td>
-                {% endfor %}
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+      <!-- Parameters -->
+      <div id="params-section" class="glass-card p-6 col-span-1 lg:col-span-2 xl:col-span-2 overflow-hidden">
+        <span id="demand-section" class="block h-0"></span>
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+          <h3 class="text-lg font-semibold text-white">Parámetros de Simulación</h3>
+          <button type="button" data-open-demand-modal
+            class="px-3 py-2 border border-brand-500/50 hover:bg-brand-500/20 text-brand-300 rounded-lg transition-colors flex gap-2 items-center text-xs w-fit">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z">
+              </path>
+            </svg>
+            Abrir Matriz de Demanda
+          </button>
         </div>
-        <div class="mt-4 flex gap-2 justify-end">
-          <button id="btn-remove-month"
-            class="px-3 py-1.5 border border-red-500/50 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors flex gap-1 items-center text-xs">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
-            </svg>
-            Eliminar Último
-          </button>
-          <button id="btn-add-month"
-            class="px-3 py-1.5 border border-brand-500/50 hover:bg-brand-500/20 text-brand-300 rounded-lg transition-colors flex gap-1 items-center text-xs">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-            </svg>
-            Agregar Mes
-          </button>
+        <p class="text-xs text-gray-400 mb-5">
+          La matriz de demanda se edita en una pantalla emergente.
+        </p>
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 items-start">
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
+              title="Porcentaje de las ventas promedio usado como inventario inicial">Inv. Inicial (%)</label><input
+              id="p_inv_inicial" type="number" step="0.01" min="0" value="0.25" data-default="0.25"
+              class="input-glass" /></div>
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
+              title="Porcentaje de las ventas promedio usado como inventario final deseado">Inv. Final (%)</label><input
+              id="p_inv_final" type="number" step="0.01" min="0" value="0.10" data-default="0.10" class="input-glass" />
+          </div>
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
+              title="Tamaño de unidad en litros para los cálculos">Unidad
+              (L)</label><input id="unidad" type="number" step="0.1" min="1" value="3" data-default="3"
+              class="input-glass" /></div>
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
+              title="Costo de producción por unidad en horario regular">Costo Producción
+              ($)</label><input id="ct" type="number" step="1" min="0" value="578" data-default="578"
+              class="input-glass" /></div>
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
+              title="Costo de mantener una unidad en inventario por periodo">Costo Inventario
+              ($)</label><input id="ht" type="number" step="1" min="0" value="145" data-default="145"
+              class="input-glass" /></div>
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
+              title="Costo por escasez o demanda insatisfecha por unidad">Penalización Escasez
+              ($)</label><input id="pit" type="number" step="1" min="0" value="10000000" data-default="10000000"
+              class="input-glass" /></div>
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
+              title="Costo por hora de trabajo en jornada regular">Hora Regular
+              ($)</label><input id="crt" type="number" step="0.1" min="0" value="5931.25" data-default="5931.25"
+              class="input-glass" /></div>
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
+              title="Costo por hora de trabajo en horas extras">Hora Extra
+              ($)</label><input id="cot" type="number" step="0.1" min="0" value="5931.25" data-default="5931.25"
+              class="input-glass" /></div>
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
+              title="Costo asociado a contratar un nuevo trabajador">Costo Contratar
+              ($)</label><input id="cwt" type="number" step="0.1" min="0" value="5931.25" data-default="5931.25"
+              class="input-glass" /></div>
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
+              title="Costo asociado a despedir un trabajador">Costo Despedir
+              ($)</label><input id="cwt_prima" type="number" step="0.1" min="0" value="5931.25" data-default="5931.25"
+              class="input-glass" /></div>
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
+              title="Costo de inversión por máquina para comparar escenarios de capacidad">Costo Máquina
+              ($)</label><input id="costo_maquina" type="number" step="1" min="0" value="10000" data-default="10000"
+              class="input-glass" /></div>
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
+              title="Costo unitario de producción usado en modelo de desagregación">Costo Prod. Desag.</label><input
+              id="costo_prod" type="number" step="0.1" min="0" value="1.0" data-default="1.0" class="input-glass" />
+          </div>
+          <div class="flex flex-col md:col-start-2 lg:col-start-3"><label class="text-[10px] uppercase text-gray-400 mb-1"
+              title="Costo unitario de inventario usado en modelo de desagregación">Costo Inv. Desag.</label><input
+              id="costo_inv" type="number" step="0.1" min="0" value="0.25" data-default="0.25" class="input-glass" />
+          </div>
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
+              title="Número de veces que correrá la simulación de colas para promedio de métricas (mayor número = mayor tiempo pero más precisión)">Réplicas
+              Sim.</label><input id="reps" type="number" step="1" min="1" value="10" data-default="10"
+              class="input-glass" /></div>
+
+          <div
+            class="col-span-2 md:col-span-4 lg:col-span-6 grid grid-cols-1 md:grid-cols-3 gap-6 mt-4 p-4 border border-white/10 rounded-xl bg-white/5">
+            <div class="flex flex-col space-y-2">
+              <label class="flex items-center gap-2 text-sm text-gray-300 font-medium cursor-pointer"
+                title="Evita programar producción en meses no consecutivos"><input type="checkbox"
+                  id="use_no_consecutive" class="form-checkbox text-brand-500 rounded bg-black/20 border-white/20">
+                Evitar Meses No Consecutivos</label>
+            </div>
+            <div class="flex flex-col space-y-2 border-l border-white/10 pl-6">
+              <label class="flex items-center gap-2 text-sm text-gray-300 font-medium cursor-pointer"
+                title="Activa un inventario de seguridad basado en el error estándar de la demanda"><input
+                  type="checkbox" id="use_safe_stock"
+                  class="form-checkbox text-brand-500 rounded bg-black/20 border-white/20"> Usar Inventario
+                Seguridad</label>
+              <div id="alpha-container" class="flex flex-col hidden mt-2">
+                <label class="text-[10px] uppercase text-gray-400 mb-1"
+                  title="Factor Alpha usado para calcular el inventario de seguridad">Factor Alpha</label>
+                <input id="alpha" type="number" step="0.01" min="0" value="0.5" data-default="0.5"
+                  class="input-glass text-xs p-1 h-8" />
+              </div>
+            </div>
+            <div class="flex flex-col space-y-2 border-l border-white/10 pl-6">
+              <label class="flex items-center gap-2 text-sm text-gray-300 font-medium cursor-pointer"
+                title="Aplica suavización a la producción para no tener saltos abruptos entre meses"><input
+                  type="checkbox" id="use_smooth"
+                  class="form-checkbox text-brand-500 rounded bg-black/20 border-white/20"> Suavización de
+                Producción</label>
+              <div id="smooth-pct-container" class="flex flex-col hidden mt-2">
+                <label class="text-[10px] uppercase text-gray-400 mb-1"
+                  title="Porcentaje de cambio máximo de producción permitido mes a mes">Porcentaje Suavización
+                  (±)</label>
+                <input id="smooth_pct" type="number" step="0.01" min="0" max="1" value="0.20" data-default="0.20"
+                  class="input-glass text-xs p-1 h-8" />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -416,105 +500,6 @@
         </div>
       </div>
 
-      <!-- Parameters -->
-      <div id="params-section" class="glass-card p-6 col-span-1 lg:col-span-2 xl:col-span-3">
-        <h3 class="text-lg font-semibold text-white mb-4">Parámetros de Simulación</h3>
-        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
-              title="Porcentaje de las ventas promedio usado como inventario inicial">Inv. Inicial (%)</label><input
-              id="p_inv_inicial" type="number" step="0.01" min="0" value="0.25" data-default="0.25"
-              class="input-glass" /></div>
-          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
-              title="Porcentaje de las ventas promedio usado como inventario final deseado">Inv. Final (%)</label><input
-              id="p_inv_final" type="number" step="0.01" min="0" value="0.10" data-default="0.10" class="input-glass" />
-          </div>
-          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
-              title="Tamaño de unidad en litros para los cálculos">Unidad
-              (L)</label><input id="unidad" type="number" step="0.1" min="1" value="3" data-default="3"
-              class="input-glass" /></div>
-          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
-              title="Costo de producción por unidad en horario regular">Costo Producción
-              ($)</label><input id="ct" type="number" step="1" min="0" value="578" data-default="578"
-              class="input-glass" /></div>
-          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
-              title="Costo de mantener una unidad en inventario por periodo">Costo Inventario
-              ($)</label><input id="ht" type="number" step="1" min="0" value="145" data-default="145"
-              class="input-glass" /></div>
-          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
-              title="Costo por escasez o demanda insatisfecha por unidad">Penalización Escasez
-              ($)</label><input id="pit" type="number" step="1" min="0" value="10000000" data-default="10000000"
-              class="input-glass" /></div>
-          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
-              title="Costo por hora de trabajo en jornada regular">Hora Regular
-              ($)</label><input id="crt" type="number" step="0.1" min="0" value="5931.25" data-default="5931.25"
-              class="input-glass" /></div>
-          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
-              title="Costo por hora de trabajo en horas extras">Hora Extra
-              ($)</label><input id="cot" type="number" step="0.1" min="0" value="5931.25" data-default="5931.25"
-              class="input-glass" /></div>
-          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
-              title="Costo asociado a contratar un nuevo trabajador">Costo Contratar
-              ($)</label><input id="cwt" type="number" step="0.1" min="0" value="5931.25" data-default="5931.25"
-              class="input-glass" /></div>
-          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
-              title="Costo asociado a despedir un trabajador">Costo Despedir
-              ($)</label><input id="cwt_prima" type="number" step="0.1" min="0" value="5931.25" data-default="5931.25"
-              class="input-glass" /></div>
-          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
-              title="Costo de inversión por máquina para comparar escenarios de capacidad">Costo Máquina
-              ($)</label><input id="costo_maquina" type="number" step="1" min="0" value="10000" data-default="10000"
-              class="input-glass" /></div>
-          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
-              title="Costo unitario de producción usado en modelo de desagregación">Costo Prod. Desag.</label><input
-              id="costo_prod" type="number" step="0.1" min="0" value="1.0" data-default="1.0" class="input-glass" />
-          </div>
-          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
-              title="Costo unitario de inventario usado en modelo de desagregación">Costo Inv. Desag.</label><input
-              id="costo_inv" type="number" step="0.1" min="0" value="0.25" data-default="0.25" class="input-glass" />
-          </div>
-          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
-              title="Número de veces que correrá la simulación de colas para promedio de métricas (mayor número = mayor tiempo pero más precisión)">Réplicas
-              Sim.</label><input id="reps" type="number" step="1" min="1" value="10" data-default="10"
-              class="input-glass" /></div>
-
-          <div
-            class="col-span-2 md:col-span-4 lg:col-span-6 grid grid-cols-1 md:grid-cols-3 gap-6 mt-4 p-4 border border-white/10 rounded-xl bg-white/5">
-            <div class="flex flex-col space-y-2">
-              <label class="flex items-center gap-2 text-sm text-gray-300 font-medium cursor-pointer"
-                title="Evita programar producción en meses no consecutivos"><input type="checkbox"
-                  id="use_no_consecutive" class="form-checkbox text-brand-500 rounded bg-black/20 border-white/20">
-                Evitar Meses No Consecutivos</label>
-            </div>
-            <div class="flex flex-col space-y-2 border-l border-white/10 pl-6">
-              <label class="flex items-center gap-2 text-sm text-gray-300 font-medium cursor-pointer"
-                title="Activa un inventario de seguridad basado en el error estándar de la demanda"><input
-                  type="checkbox" id="use_safe_stock"
-                  class="form-checkbox text-brand-500 rounded bg-black/20 border-white/20"> Usar Inventario
-                Seguridad</label>
-              <div id="alpha-container" class="flex flex-col hidden mt-2">
-                <label class="text-[10px] uppercase text-gray-400 mb-1"
-                  title="Factor Alpha usado para calcular el inventario de seguridad">Factor Alpha</label>
-                <input id="alpha" type="number" step="0.01" min="0" value="0.5" data-default="0.5"
-                  class="input-glass text-xs p-1 h-8" />
-              </div>
-            </div>
-            <div class="flex flex-col space-y-2 border-l border-white/10 pl-6">
-              <label class="flex items-center gap-2 text-sm text-gray-300 font-medium cursor-pointer"
-                title="Aplica suavización a la producción para no tener saltos abruptos entre meses"><input
-                  type="checkbox" id="use_smooth"
-                  class="form-checkbox text-brand-500 rounded bg-black/20 border-white/20"> Suavización de
-                Producción</label>
-              <div id="smooth-pct-container" class="flex flex-col hidden mt-2">
-                <label class="text-[10px] uppercase text-gray-400 mb-1"
-                  title="Porcentaje de cambio máximo de producción permitido mes a mes">Porcentaje Suavización
-                  (±)</label>
-                <input id="smooth_pct" type="number" step="0.01" min="0" max="1" value="0.20" data-default="0.20"
-                  class="input-glass text-xs p-1 h-8" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- RESULTADOS -->
@@ -522,6 +507,68 @@
     <!-- RECALCULATED RESULTS -->
     <div id="results-recalc" class="space-y-6 pb-20 mt-12 border-t border-brand-500/30 pt-12 hidden"></div>
   </main>
+
+  <!-- Demand Modal -->
+  <div id="demand-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
+    <div id="demand-modal-backdrop" class="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
+    <div class="relative glass-card w-full max-w-6xl max-h-[90vh] p-6 flex flex-col">
+      <div class="flex items-start justify-between gap-4 mb-3">
+        <div>
+          <h3 class="text-lg font-semibold text-white">Matriz de Demanda</h3>
+          <p class="text-xs text-gray-400 mt-1">Todos los valores están expresados en litros (L).</p>
+        </div>
+        <button id="close-demand-modal" type="button"
+          class="px-3 py-2 border border-white/20 hover:bg-white/10 text-gray-200 rounded-lg text-xs transition-colors">
+          Cerrar
+        </button>
+      </div>
+      <div class="overflow-x-auto flex-1">
+        <table id="data-table" class="w-full table-glass text-sm">
+          <thead>
+            <tr>
+              <th class="text-left">Mes</th>
+              <th title="Energizante">Energizante</th>
+              <th title="Isotónica">Isotónica</th>
+              <th title="Agua saborizada">Agua sab.</th>
+              <th title="Té">Té</th>
+              <th title="Jugo">Jugo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for month in month_order %}
+            {% set values = default_data[month] %}
+            <tr data-month="{{ month }}">
+              <td class="text-left font-medium text-gray-300">{{ month }}</td>
+              {% for idx in range(5) %}
+              <td>
+                <input type="number" min="0" step="1" data-month="{{ month }}" data-prod="{{ idx }}"
+                  value="{{ values[idx] }}" data-default="{{ values[idx] }}"
+                  class="input-glass text-center text-xs" />
+              </td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="mt-4 flex gap-2 justify-end">
+        <button id="btn-remove-month"
+          class="px-3 py-1.5 border border-red-500/50 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors flex gap-1 items-center text-xs">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+          </svg>
+          Eliminar Último
+        </button>
+        <button id="btn-add-month"
+          class="px-3 py-1.5 border border-brand-500/50 hover:bg-brand-500/20 text-brand-300 rounded-lg transition-colors flex gap-1 items-center text-xs">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+          </svg>
+          Agregar Mes
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- Load SheetJS & Plotly -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -531,11 +578,38 @@
     let lastResult = null;
     let lastPayload = null;
 
+    function parseLocaleNumber(rawValue) {
+      let normalized = String(rawValue ?? '').trim().replace(/\s+/g, '');
+      if (!normalized) return NaN;
+
+      const hasComma = normalized.includes(',');
+      const hasDot = normalized.includes('.');
+
+      if (hasComma && hasDot) {
+        if (normalized.lastIndexOf(',') > normalized.lastIndexOf('.')) {
+          normalized = normalized.replace(/\./g, '').replace(',', '.');
+        } else {
+          normalized = normalized.replace(/,/g, '');
+        }
+      } else if (hasComma) {
+        const commaAsThousands = /^-?\d{1,3}(,\d{3})+$/.test(normalized);
+        normalized = commaAsThousands ? normalized.replace(/,/g, '') : normalized.replace(',', '.');
+      } else if (hasDot) {
+        const dotAsThousands = /^-?\d{1,3}(\.\d{3})+$/.test(normalized);
+        if (dotAsThousands) normalized = normalized.replace(/\./g, '');
+      }
+
+      const parsed = Number(normalized);
+      return Number.isFinite(parsed) ? parsed : NaN;
+    }
+
     function fallbackNumber(input) {
       const raw = (input.value || '').trim();
-      if (raw === '') return parseFloat(input.dataset.default);
-      const n = Number(raw);
-      return Number.isFinite(n) ? n : parseFloat(input.dataset.default);
+      if (raw === '') return parseLocaleNumber(input.dataset.default);
+      const n = parseLocaleNumber(raw);
+      if (Number.isFinite(n)) return n;
+      const fallback = parseLocaleNumber(input.dataset.default);
+      return Number.isFinite(fallback) ? fallback : 0;
     }
 
     function roundToTwo(value) {
@@ -566,6 +640,60 @@
         .replace(/[\u0300-\u036f]/g, '')
         .replace(/\s+/g, ' ')
         .trim();
+    }
+
+    const PARAM_NUMERIC_INPUT_IDS = [
+      'p_inv_inicial', 'p_inv_final', 'unidad', 'ct', 'ht', 'pit',
+      'crt', 'cot', 'cwt', 'cwt_prima', 'costo_maquina', 'costo_prod',
+      'costo_inv', 'reps', 'alpha', 'smooth_pct'
+    ];
+
+    function getInputStepDecimals(input) {
+      const step = String(input?.getAttribute('step') || '').replace(',', '.').trim();
+      if (!step || step === 'any' || !step.includes('.')) return 0;
+      return step.split('.')[1].length;
+    }
+
+    function formatLocaleInputValue(value, decimals) {
+      return new Intl.NumberFormat('es-CO', {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals
+      }).format(value);
+    }
+
+    function setupParameterInputFormatting() {
+      PARAM_NUMERIC_INPUT_IDS.forEach((id) => {
+        const input = document.getElementById(id);
+        if (!input) return;
+
+        const decimals = getInputStepDecimals(input);
+        input.type = 'text';
+        input.setAttribute('inputmode', 'decimal');
+        input.dataset.decimals = String(decimals);
+
+        const parsedDefault = parseLocaleNumber(input.dataset.default ?? input.value);
+        if (Number.isFinite(parsedDefault)) {
+          input.dataset.default = String(parsedDefault);
+          input.value = formatLocaleInputValue(parsedDefault, decimals);
+        }
+
+        input.addEventListener('focus', () => {
+          const parsed = parseLocaleNumber(input.value);
+          if (!Number.isFinite(parsed)) return;
+          input.value = decimals > 0 ? parsed.toFixed(decimals).replace('.', ',') : String(Math.round(parsed));
+          input.select();
+        });
+
+        input.addEventListener('blur', () => {
+          const parsed = parseLocaleNumber(input.value);
+          if (Number.isFinite(parsed)) {
+            input.value = formatLocaleInputValue(parsed, decimals);
+            return;
+          }
+          const fallback = parseLocaleNumber(input.dataset.default);
+          input.value = Number.isFinite(fallback) ? formatLocaleInputValue(fallback, decimals) : '';
+        });
+      });
     }
 
     function getDemandDataFromForm() {
@@ -649,6 +777,41 @@
         totalDemand
       };
     }
+
+    const demandModal = document.getElementById('demand-modal');
+    const demandModalBackdrop = document.getElementById('demand-modal-backdrop');
+    const closeDemandModalBtn = document.getElementById('close-demand-modal');
+
+    function openDemandModal() {
+      if (!demandModal) return;
+      demandModal.classList.remove('hidden');
+      demandModal.classList.add('flex');
+    }
+
+    function closeDemandModal() {
+      if (!demandModal) return;
+      demandModal.classList.add('hidden');
+      demandModal.classList.remove('flex');
+    }
+
+    document.querySelectorAll('[data-open-demand-modal]').forEach((trigger) => {
+      trigger.addEventListener('click', (event) => {
+        event.preventDefault();
+        openDemandModal();
+      });
+    });
+
+    if (closeDemandModalBtn) {
+      closeDemandModalBtn.addEventListener('click', closeDemandModal);
+    }
+    if (demandModalBackdrop) {
+      demandModalBackdrop.addEventListener('click', closeDemandModal);
+    }
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeDemandModal();
+    });
+
+    setupParameterInputFormatting();
 
     // Handle Excel Upload
     document.addEventListener('change', (ev) => {
