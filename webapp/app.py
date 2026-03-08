@@ -10,6 +10,8 @@ rendered as PNG images encoded in base64.
 
 import base64
 import io
+import math
+import random
 from numbers import Number
 from fastapi import FastAPI, Request, Body
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -59,6 +61,69 @@ MONTH_ORDER = [
     "July","August","September","October","November","December"
 ]
 
+
+def generate_random_default_data(seed: int | None = None):
+    """Generate a plausible monthly demand matrix with mixed up/down behavior."""
+    rng = random.Random(seed)
+    base_template = [86000, 52000, 76000, 37000, 86000]
+    # Keep values closer to a centered baseline (less dispersion across months/products)
+    base_levels = [int(base * rng.uniform(0.96, 1.12)) for base in base_template]
+    season_amplitudes = [rng.uniform(0.025, 0.08) for _ in range(5)]
+    phases = [rng.uniform(0, 2 * math.pi) for _ in range(5)]
+
+    data = {}
+    max_idx = max(1, len(MONTH_ORDER) - 1)
+
+    # Enforce mixed directions at the beginning and at the end of the horizon.
+    # +1 means uptrend, -1 means downtrend.
+    start_signs = [1, -1, 1, 1, -1]
+    end_signs =   [-1, 1, -1, -1, 1]
+    # Tea (index 3) specifically: starts up, later turns down.
+    start_signs[3] = 1
+    end_signs[3] = -1
+
+    start_slopes = [sign * rng.uniform(0.05, 0.12) for sign in start_signs]
+    end_slopes = [sign * rng.uniform(0.05, 0.12) for sign in end_signs]
+    # Relative competition: some products gain demand share and overtake others over time.
+    relative_shift = [rng.uniform(-0.05, 0.05) for _ in range(5)]
+    winners = rng.sample(range(5), k=2)
+    losers = rng.sample([idx for idx in range(5) if idx not in winners], k=2)
+    for idx in winners:
+        relative_shift[idx] = rng.uniform(0.12, 0.22)
+    for idx in losers:
+        relative_shift[idx] = -rng.uniform(0.12, 0.22)
+
+    # Independent product behavior: no global month multiplier shared by all products.
+    prod_momentum = [rng.uniform(-0.025, 0.025) for _ in range(5)]
+    prod_ar = [rng.uniform(0.40, 0.72) for _ in range(5)]
+    shock_prob = [rng.uniform(0.12, 0.28) for _ in range(5)]
+    for month_idx, month in enumerate(MONTH_ORDER):
+        row = []
+        for prod_idx in range(5):
+            t = month_idx / max_idx
+            # Quadratic trend with controlled initial and final slope:
+            # trend'(0)=start_slope and trend'(1)=end_slope
+            s0 = start_slopes[prod_idx]
+            s1 = end_slopes[prod_idx]
+            trend = 1.0 + (s0 * t) + (0.5 * (s1 - s0) * (t ** 2))
+            season = 1.0 + season_amplitudes[prod_idx] * math.sin((2 * math.pi * month_idx / 12) + phases[prod_idx])
+            competition_factor = 1.0 + (relative_shift[prod_idx] * ((2.0 * t) - 1.0))
+            prod_momentum[prod_idx] = (prod_ar[prod_idx] * prod_momentum[prod_idx]) + rng.uniform(-0.018, 0.018)
+            momentum_factor = 1.0 + prod_momentum[prod_idx]
+            noise = 1.0 + rng.uniform(-0.025, 0.025)
+            if rng.random() < shock_prob[prod_idx]:
+                noise *= rng.uniform(0.94, 1.08)
+            value = base_levels[prod_idx] * trend * season * competition_factor * momentum_factor * noise
+
+            # Clamp to keep demand centered and avoid unrealistic dispersion.
+            min_allowed = base_levels[prod_idx] * 0.76
+            max_allowed = base_levels[prod_idx] * 1.30
+            value = min(max(value, min_allowed), max_allowed)
+
+            row.append(max(10000, int(round(value))))
+        data[month] = row
+    return data
+
 def round_dataframe(df, decimals: int = 2):
     """Return a rounded copy of the DataFrame for consistent presentation."""
     if df is None:
@@ -78,10 +143,11 @@ def round_value(value, decimals: int = 2):
 @app.get("/", response_class=HTMLResponse)
 async def read_index(request: Request):
     """Serve the main page with default data embedded."""
-    # Pasamos directamente los diccionarios
+    # Random but plausible demand defaults on each page load.
+    random_default_data = generate_random_default_data()
     return templates.TemplateResponse("index.html", {
         "request": request,
-        "default_data": DEFAULT_DATA,
+        "default_data": random_default_data,
         "default_times": DEFAULT_TIEMPOS,
         "month_order": MONTH_ORDER
     })
@@ -112,6 +178,7 @@ async def run_simulation(payload: dict = Body(...)):
         cot = float(payload.get("cot", 5931.25))
         cwt = float(payload.get("cwt", 5931.25))
         cwt_prima = float(payload.get("cwt_prima", 5931.25))
+        costo_maquina = float(payload.get("costo_maquina", 10000))
         graficar = bool(payload.get("graficar", True))
         costo_prod = float(payload.get("costo_prod", 1.0))
         costo_inv  = float(payload.get("costo_inv", 0.25))
@@ -218,6 +285,18 @@ async def run_simulation(payload: dict = Body(...)):
         capacities_info = result.get('capacities') or {}
         agg_status = result.get('agg', {}).get('status')
         agg_z = round_value(result.get('agg', {}).get('z'))
+        used_capacities = capacities_info.get("used") if isinstance(capacities_info, dict) else None
+        total_maquinas = 0.0
+        if isinstance(used_capacities, list):
+            for cap in used_capacities:
+                try:
+                    total_maquinas += max(0.0, float(cap))
+                except (TypeError, ValueError):
+                    continue
+        costo_maquinas_total = round_value(total_maquinas * costo_maquina)
+        agg_z_total = None
+        if isinstance(agg_z, Number):
+            agg_z_total = round_value(float(agg_z) + (total_maquinas * costo_maquina))
 
         tabla_desag = df_to_html(desagg_df)
         tabla_prod  = df_to_html(tabla_prod_df) if tabla_prod_df is not None else ""
@@ -261,7 +340,12 @@ async def run_simulation(payload: dict = Body(...)):
         # Build JSON response
         return JSONResponse({
             "status": agg_status,
+            "z_base": agg_z,
             "z": agg_z,
+            "z_total": agg_z_total,
+            "costo_maquina": round_value(costo_maquina),
+            "total_maquinas": round_value(total_maquinas),
+            "costo_maquinas_total": costo_maquinas_total,
             "total_demand": total_demand,
             "total_production": total_production,
             "tabla_desag": tabla_desag,

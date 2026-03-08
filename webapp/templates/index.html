@@ -461,6 +461,10 @@
               ($)</label><input id="cwt_prima" type="number" step="0.1" min="0" value="5931.25" data-default="5931.25"
               class="input-glass" /></div>
           <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
+              title="Costo de inversión por máquina para comparar escenarios de capacidad">Costo Máquina
+              ($)</label><input id="costo_maquina" type="number" step="1" min="0" value="10000" data-default="10000"
+              class="input-glass" /></div>
+          <div class="flex flex-col"><label class="text-[10px] uppercase text-gray-400 mb-1"
               title="Costo unitario de producción usado en modelo de desagregación">Costo Prod. Desag.</label><input
               id="costo_prod" type="number" step="0.1" min="0" value="1.0" data-default="1.0" class="input-glass" />
           </div>
@@ -555,6 +559,97 @@
       return new Intl.NumberFormat("es-ES", finalOptions).format(num);
     }
 
+    function normalizeLabel(text) {
+      return String(text ?? '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function getDemandDataFromForm() {
+      const demandByMonth = {};
+      document.querySelectorAll('#data-table tbody tr').forEach(row => {
+        const month = row.getAttribute('data-month');
+        const values = Array.from(row.querySelectorAll('input')).map(input => fallbackNumber(input));
+        demandByMonth[month] = values;
+      });
+      return demandByMonth;
+    }
+
+    function inferDemandIndex(productKey, fallbackIndex, demandLabels, normalizedDemandLabels) {
+      const normalizedKey = normalizeLabel(productKey);
+      const byName = normalizedDemandLabels.indexOf(normalizedKey);
+      if (byName >= 0) return byName;
+
+      const productMatch = normalizedKey.match(/^producto[_\s]*(\d+)$/i);
+      if (productMatch) {
+        const idx = Number(productMatch[1]) - 1;
+        if (idx >= 0 && idx < demandLabels.length) return idx;
+      }
+
+      return Math.min(Math.max(fallbackIndex, 0), demandLabels.length - 1);
+    }
+
+    function buildProdVsDemandDataset(result) {
+      const productionRows = result?.json_tabla_produccion;
+      if (!Array.isArray(productionRows) || !productionRows.length) return null;
+
+      const months = productionRows.map(row => row.Mes).filter(Boolean);
+      if (!months.length) return null;
+
+      const productKeys = Object.keys(productionRows[0]).filter(col => col !== 'Mes');
+      if (!productKeys.length) return null;
+
+      const demandLabels = ["Energizantes", "Isotónicas", "Agua Saborizada", "Té", "Jugo"];
+      const normalizedDemandLabels = demandLabels.map(normalizeLabel);
+      const demandByMonth = getDemandDataFromForm();
+
+      const productMeta = productKeys.map((key, idx) => ({
+        key,
+        demandIdx: inferDemandIndex(key, idx, demandLabels, normalizedDemandLabels)
+      }));
+
+      const byProduct = {};
+      const totalProduction = [];
+      const totalDemand = [];
+
+      months.forEach((month, rowIdx) => {
+        const prodRow = productionRows[rowIdx] || {};
+        const demandValues = demandByMonth[month] || [];
+        let sumProd = 0;
+        let sumDemand = 0;
+
+        productMeta.forEach(meta => {
+          const prodValueRaw = Number(prodRow[meta.key]);
+          const prodValue = Number.isFinite(prodValueRaw) ? prodValueRaw : 0;
+          const demandRaw = Number(demandValues[meta.demandIdx]);
+          const demandValue = Number.isFinite(demandRaw) ? demandRaw : 0;
+
+          if (!byProduct[meta.key]) {
+            byProduct[meta.key] = { production: [], demand: [] };
+          }
+          byProduct[meta.key].production.push(prodValue);
+          byProduct[meta.key].demand.push(demandValue);
+
+          sumProd += prodValue;
+          sumDemand += demandValue;
+        });
+
+        totalProduction.push(sumProd);
+        totalDemand.push(sumDemand);
+      });
+
+      return {
+        months,
+        products: productKeys,
+        byProduct,
+        totalProduction,
+        totalDemand
+      };
+    }
+
     // Handle Excel Upload
     document.addEventListener('change', (ev) => {
       if (ev.target && ev.target.id === 'excel-file') {
@@ -644,14 +739,24 @@
       tbody.removeChild(rows[rows.length - 1]);
     });
 
-    // Run Simulation
-    document.getElementById('run-btn').addEventListener('click', async () => {
-      // Validaciones de compatibilidad de opciones
-      if (document.getElementById('use_no_consecutive').checked && document.getElementById('use_smooth').checked) {
-        alert("Matemáticamente imposible: No se puede resolver el modelo si activas 'Evitar Meses No Consecutivos' y 'Suavización de Producción' al mismo tiempo.\n\nLa primera obliga a detener la producción (caída del 100%), mientras que la segunda prohíbe cambios abruptos. Por favor, desactiva una de las dos.");
-        return;
-      }
+    const progressSteps = [
+      "Resolviendo Modelo Agregado (PuLP)...",
+      "Disagregando Demanda por Producto...",
+      "Calculando Inventarios Óptimos...",
+      "Corriendo Réplicas de Simulación de Colas...",
+      "Generando Matrices de Resultados y Gráficos...",
+      "Finalizando Reporte Ejecutivo..."
+    ];
 
+    function validateCompatibleOptions() {
+      const noConsecutive = document.getElementById('use_no_consecutive').checked;
+      const useSmooth = document.getElementById('use_smooth').checked;
+      if (!noConsecutive || !useSmooth) return true;
+      alert("Matemáticamente imposible: No se puede resolver el modelo si activas 'Evitar Meses No Consecutivos' y 'Suavización de Producción' al mismo tiempo.\n\nLa primera obliga a detener la producción (caída del 100%), mientras que la segunda prohíbe cambios abruptos. Por favor, desactiva una de las dos.");
+      return false;
+    }
+
+    function buildPayload(capacidadesOverride = null) {
       const data = {};
       document.querySelectorAll('#data-table tbody tr').forEach(row => {
         const month = row.getAttribute('data-month');
@@ -676,6 +781,7 @@
         cot: fallbackNumber(document.getElementById('cot')),
         cwt: fallbackNumber(document.getElementById('cwt')),
         cwt_prima: fallbackNumber(document.getElementById('cwt_prima')),
+        costo_maquina: fallbackNumber(document.getElementById('costo_maquina')),
         costo_prod: fallbackNumber(document.getElementById('costo_prod')),
         costo_inv: fallbackNumber(document.getElementById('costo_inv')),
         reps: fallbackNumber(document.getElementById('reps')),
@@ -686,12 +792,15 @@
         smooth_pct: fallbackNumber(document.getElementById('smooth_pct')),
         graficar: true, return_tables: true, make_plots: true, verbose: true
       };
+      if (Array.isArray(capacidadesOverride)) {
+        payload.capacidades_override = capacidadesOverride;
+      }
+      return payload;
+    }
 
-      const resultsEl = document.getElementById('results');
-
-      // Función para actualizar mensajes de progreso
+    function startProgressAnimation(container, initialText) {
       const setProgress = (text) => {
-        resultsEl.innerHTML = `
+        container.innerHTML = `
           <div class="flex items-center justify-center p-12 flex-col">
             <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-500 mb-4"></div>
             <span class="text-brand-400 font-medium text-lg">${text}</span>
@@ -699,18 +808,7 @@
           </div>`;
       };
 
-      setProgress("Iniciando Modelos Matemáticos...");
-
-      // Simulación de pasos para feedback al usuario
-      const progressSteps = [
-        "Resolviendo Modelo Agregado (PuLP)...",
-        "Disagregando Demanda por Producto...",
-        "Calculando Inventarios Óptimos...",
-        "Corriendo Réplicas de Simulación de Colas...",
-        "Generando Matrices de Resultados y Gráficos...",
-        "Finalizando Reporte Ejecutivo..."
-      ];
-
+      setProgress(initialText);
       let stepIdx = 0;
       const progressInterval = setInterval(() => {
         if (stepIdx < progressSteps.length) {
@@ -721,22 +819,92 @@
         }
       }, 1500);
 
+      return () => clearInterval(progressInterval);
+    }
+
+    function isOptimalStatus(status) {
+      const normalized = String(status || '').toLowerCase().trim();
+      if (!normalized) return false;
+      if (normalized.includes('infeasible') || normalized.includes('unbounded') || normalized.includes('error') || normalized.includes('fail')) {
+        return false;
+      }
+      return normalized.includes('optimal') || normalized.includes('óptimo') || normalized.includes('optimo');
+    }
+
+    function getObjectiveForComparison(result) {
+      const zTotal = Number(result?.z_total);
+      if (Number.isFinite(zTotal)) return zTotal;
+      const zBase = Number(result?.z);
+      return Number.isFinite(zBase) ? zBase : NaN;
+    }
+
+    function getObjectiveLabel(result) {
+      return Number.isFinite(Number(result?.z_total)) ? "Objetivo total (Z + máquinas)" : "Valor objetivo (Z)";
+    }
+
+    function renderManualCapacityFeedback(result) {
+      const feedbackEl = document.getElementById('manual-capacity-feedback');
+      if (!feedbackEl) return;
+
+      const originalObjective = Number(window.originalZ);
+      const newObjective = getObjectiveForComparison(result);
+      if (!Number.isFinite(originalObjective) || !Number.isFinite(newObjective)) {
+        feedbackEl.innerHTML = `
+          <div class="mt-4 p-4 rounded-xl border border-red-500/30 bg-red-500/10">
+            <p class="text-sm font-semibold text-red-300">No fue posible comparar el valor objetivo.</p>
+          </div>`;
+        return;
+      }
+
+      const better = newObjective < originalObjective;
+      const optimal = isOptimalStatus(result?.status);
+      const diff = newObjective - originalObjective;
+      const originalStatus = window.originalStatus || 'Sin estado';
+      const objectiveLabel = getObjectiveLabel(result);
+      const machineCostBlock = Number.isFinite(Number(result?.costo_maquinas_total))
+        ? `<p class="text-gray-300">Costo máquinas (${formatNumber(result?.total_maquinas, { maximumFractionDigits: 0 })} x ${formatCurrency(result?.costo_maquina)}): <b>${formatCurrency(result?.costo_maquinas_total)}</b></p>`
+        : "";
+      feedbackEl.innerHTML = `
+        <div class="mt-4 p-4 rounded-xl border ${better ? 'border-green-500/30 bg-green-500/10' : 'border-red-500/30 bg-red-500/10'}">
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-2">
+            <p class="text-xs uppercase tracking-wider text-gray-400">Resultado Recalculo Manual</p>
+            <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase ${better ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}">
+              ${better ? 'Mejora en Z' : 'Sin mejora en Z'}
+            </span>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+            <p class="${optimal ? 'text-green-300' : 'text-red-300'}">Estado del modelo: <b>${optimal ? 'Óptimo' : 'No óptimo'}</b> (${result?.status || 'Sin estado'})</p>
+            <p class="${better ? 'text-green-300' : 'text-red-300'}">${objectiveLabel} nuevo: <b>${formatCurrency(newObjective)}</b></p>
+            <p class="text-gray-300">Estado original: <b>${originalStatus}</b></p>
+            <p class="text-gray-300">${objectiveLabel} original: <b>${formatCurrency(originalObjective)}</b></p>
+            <p class="${better ? 'text-green-300' : 'text-red-300'}">Diferencia (nuevo - original): <b>${formatCurrency(diff)}</b></p>
+            ${machineCostBlock}
+          </div>
+        </div>`;
+    }
+
+    // Run Simulation
+    document.getElementById('run-btn').addEventListener('click', async () => {
+      if (!validateCompatibleOptions()) return;
+
+      const payload = buildPayload();
+      const resultsEl = document.getElementById('results');
+      const stopProgress = startProgressAnimation(resultsEl, "Iniciando Modelos Matemáticos...");
+
       try {
         const res = await fetch('/run', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
         });
         const result = await res.json();
-
-        clearInterval(progressInterval); // Detener el intervalo si la respuesta llega rápido
+        stopProgress();
 
         if (!res.ok || result.error) throw new Error(result.error || 'Error desconocido');
 
         lastResult = result;
         lastPayload = JSON.parse(JSON.stringify(payload));
-
         renderResults(result);
       } catch (err) {
-        clearInterval(progressInterval);
+        stopProgress();
         resultsEl.innerHTML = `<div class="glass-card p-6 border-red-500/50 text-red-400"><strong>Error:</strong> ${err.message}</div>`;
       }
     });
@@ -745,7 +913,8 @@
       const resultsEl = document.getElementById(isRecalc ? 'results-recalc' : 'results');
 
       if (!isRecalc) {
-        window.originalZ = result.z;
+        window.originalZ = getObjectiveForComparison(result);
+        window.originalStatus = result.status;
         const recalcEl = document.getElementById('results-recalc');
         if (recalcEl) {
           recalcEl.innerHTML = '';
@@ -756,18 +925,20 @@
       }
 
       const suffix = isRecalc ? '-recalc' : '';
+      const objectiveValue = getObjectiveForComparison(result);
+      const objectiveLabel = getObjectiveLabel(result);
 
       // Calcular comparación de Z si existe resultado anterior y estamos recalculando
       let zComparisonHtml = "";
-      if (isRecalc && window.originalZ !== undefined) {
-        const isBetter = result.z <= window.originalZ;
+      if (isRecalc && Number.isFinite(window.originalZ) && Number.isFinite(objectiveValue)) {
+        const isBetter = objectiveValue < window.originalZ;
         zComparisonHtml = `
           <div class="mt-4 p-4 rounded-xl border ${isBetter ? 'border-green-500/30 bg-green-500/10' : 'border-red-500/30 bg-red-500/10'} feedback-card">
             <div class="flex justify-between items-center">
               <div>
-                <p class="text-xs uppercase text-gray-400 mb-1">Comparación de Valor Objetivo</p>
+                <p class="text-xs uppercase text-gray-400 mb-1">Comparación de ${objectiveLabel}</p>
                 <div class="flex items-baseline gap-4">
-                  <span class="text-lg font-medium ${isBetter ? 'text-green-400' : 'text-red-400'}">Actual: ${formatCurrency(result.z)}</span>
+                  <span class="text-lg font-medium ${isBetter ? 'text-green-400' : 'text-red-400'}">Actual: ${formatCurrency(objectiveValue)}</span>
                   <span class="text-sm text-gray-500">Original: ${formatCurrency(window.originalZ)}</span>
                 </div>
               </div>
@@ -801,8 +972,9 @@
                         <p class="text-xl font-semibold text-green-400">${result.status || 'Éxito'}</p>
                     </div>
                     <div class="glass-card p-5 border-t-2 border-t-accent-500">
-                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Valor Objetivo (Z)</p>
-                        <p class="text-2xl font-bold text-white">${formatCurrency(result.z)}</p>
+                        <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">${objectiveLabel}</p>
+                        <p class="text-2xl font-bold text-white">${formatCurrency(objectiveValue)}</p>
+                        ${Number.isFinite(Number(result?.z_total)) ? `<p class="text-[11px] text-gray-400 mt-1">Z base: ${formatCurrency(result.z)} | Máquinas: ${formatCurrency(result.costo_maquinas_total)}</p>` : ''}
                     </div>
                     <div class="glass-card p-5">
                         <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Demanda Total</p>
@@ -815,12 +987,12 @@
                 </div>
 
                 <!-- Charts -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                    <div class="glass-card p-4">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-12 relative z-10">
+                    <div class="glass-card p-4 overflow-hidden">
                         <h3 class="text-sm font-medium text-gray-300 mb-2">Producción Mensual por Producto</h3>
                         <div id="plot-prod-mes${suffix}" class="w-full h-80"></div>
                     </div>
-                    <div class="glass-card p-4 relative">
+                    <div class="glass-card p-4 relative overflow-hidden">
                         <div class="flex justify-between items-center mb-2">
                            <h3 class="text-sm font-medium text-gray-300">Métricas de Simulación</h3>
                            <select id="metric-selector${suffix}" class="bg-black/40 border border-white/10 rounded-lg text-[10px] text-gray-300 px-2 py-1 focus:outline-none focus:border-brand-500">
@@ -833,6 +1005,14 @@
                         </div>
                         <div id="plot-sim-productos${suffix}" class="w-full h-80"></div>
                     </div>
+                </div>
+
+                <div class="glass-card p-4 mb-8 mt-2 relative z-0">
+                    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-3">
+                      <h3 class="text-sm font-medium text-gray-300">Producción vs Demanda (Mes a Mes)</h3>
+                      <div id="prod-demand-filters${suffix}" class="flex flex-wrap gap-2"></div>
+                    </div>
+                    <div id="plot-prod-vs-demand${suffix}" class="w-full h-96"></div>
                 </div>
 
                 <!-- Data Tables -->
@@ -857,6 +1037,7 @@
                         <div class="overflow-x-auto" id="estaciones-container${suffix}">
                             ${result.df_estaciones || '<div class="text-gray-500">Sin datos</div>'}
                         </div>
+                        ${!isRecalc ? '<div id="manual-capacity-feedback" class="mt-4 text-xs text-gray-400">El resultado de "Recalcular con Capacidades Manuales" se mostrará aquí.</div>' : ''}
                     </div>
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                       <div class="glass-card p-4 overflow-hidden flex flex-col">
@@ -928,12 +1109,14 @@
         Plotly.newPlot(`plot-prod-mes${suffix}`, traces, {
           ...darkLayout,
           showlegend: true,
-          legend: { orientation: 'h', y: 1.2, x: 0.5, xanchor: 'center', font: { size: 9 } }
+          legend: { orientation: 'h', y: 1.1, x: 0.5, xanchor: 'center', font: { size: 9 } }
         }, plotConfig);
       }
 
       // 2. Métricas de Simulación (Initial: WIP)
       updateSimulationPlot(result, 'WIP_media', isRecalc);
+      // 3. Producción vs Demanda (interactivo con filtros)
+      renderProdVsDemandChart(result, isRecalc);
     }
 
     function updateSimulationPlot(result, metric, isRecalc = false) {
@@ -977,19 +1160,141 @@
       }
     }
 
-    async function rerunWithCapacities(fromRecalc = false) {
-      // 1. Extraer capacidades de la tabla
-      const suffix = fromRecalc ? '-recalc' : '';
-      const table = document.querySelector(`#estaciones-container${suffix} table`);
-      if (!table) return;
+    function renderProdVsDemandChart(result, isRecalc = false) {
+      const suffix = isRecalc ? '-recalc' : '';
+      const filtersEl = document.getElementById(`prod-demand-filters${suffix}`);
+      const plotEl = document.getElementById(`plot-prod-vs-demand${suffix}`);
+      if (!filtersEl || !plotEl) return;
+
+      const dataset = buildProdVsDemandDataset(result);
+      if (!dataset) {
+        filtersEl.innerHTML = '';
+        plotEl.innerHTML = '<div class="text-gray-500 text-sm p-4">Sin datos para graficar Producción vs Demanda.</div>';
+        return;
+      }
+
+      const filterKeys = ['__TOTAL__', ...dataset.products];
+      const selected = new Set(['__TOTAL__']);
+      const buttonBaseClasses = "prod-demand-filter px-2 py-1 rounded-md border text-[11px] transition-colors";
+      const activeClasses = ["border-brand-500/70", "bg-brand-500/20", "text-white"];
+      const inactiveClasses = ["border-white/15", "bg-black/20", "text-gray-300", "hover:bg-white/5"];
+
+      const labelFor = (key) => key === '__TOTAL__' ? 'Total' : key;
+
+      filtersEl.innerHTML = filterKeys.map((key) => `
+        <button type="button" data-key="${key}" class="${buttonBaseClasses} ${key === '__TOTAL__' ? activeClasses.join(' ') : inactiveClasses.join(' ')}">
+          ${labelFor(key)}
+        </button>
+      `).join('');
+
+      const buttons = Array.from(filtersEl.querySelectorAll('.prod-demand-filter'));
+
+      const setButtonState = (button, isActive) => {
+        button.classList.remove(...activeClasses, ...inactiveClasses);
+        button.classList.add(...(isActive ? activeClasses : inactiveClasses));
+      };
+
+      const redraw = () => {
+        updateProdVsDemandPlot(dataset, Array.from(selected), suffix);
+      };
+
+      buttons.forEach(button => {
+        button.addEventListener('click', () => {
+          const key = button.dataset.key;
+          if (!key) return;
+          if (selected.has(key)) {
+            if (selected.size === 1) return;
+            selected.delete(key);
+          } else {
+            selected.add(key);
+          }
+          buttons.forEach(btn => setButtonState(btn, selected.has(btn.dataset.key)));
+          redraw();
+        });
+      });
+
+      redraw();
+    }
+
+    function updateProdVsDemandPlot(dataset, selectedKeys, suffix = '') {
+      const plotId = `plot-prod-vs-demand${suffix}`;
+      const plotConfig = { responsive: true, displaylogo: false };
+      const darkLayout = {
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: { color: '#94a3b8', size: 10 },
+        xaxis: { gridcolor: 'rgba(255,255,255,0.05)', zerolinecolor: 'rgba(255,255,255,0.1)' },
+        yaxis: { gridcolor: 'rgba(255,255,255,0.05)', zerolinecolor: 'rgba(255,255,255,0.1)' },
+        margin: { l: 50, r: 20, t: 35, b: 45 }
+      };
+
+      const palette = ['#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#a78bfa', '#14b8a6', '#f97316'];
+      const traces = [];
+      let colorIndex = 0;
+
+      selectedKeys.forEach(key => {
+        const isTotal = key === '__TOTAL__';
+        const label = isTotal ? 'Total' : key;
+        const productionSeries = isTotal ? dataset.totalProduction : dataset.byProduct[key]?.production;
+        const demandSeries = isTotal ? dataset.totalDemand : dataset.byProduct[key]?.demand;
+        if (!productionSeries || !demandSeries) return;
+
+        const color = isTotal ? '#f8fafc' : palette[colorIndex++ % palette.length];
+        traces.push({
+          x: dataset.months,
+          y: demandSeries,
+          name: `Demanda - ${label}`,
+          type: 'scatter',
+          mode: 'lines+markers',
+          line: { color, width: 2, dash: 'dot' },
+          marker: { size: 6, symbol: 'circle-open' }
+        });
+        traces.push({
+          x: dataset.months,
+          y: productionSeries,
+          name: `Producción - ${label}`,
+          type: 'scatter',
+          mode: 'lines+markers',
+          line: { color, width: 2.5, dash: 'solid' },
+          marker: { size: 6 }
+        });
+      });
+
+      if (!traces.length) {
+        document.getElementById(plotId).innerHTML = '<div class="text-gray-500 text-sm p-4">Selecciona al menos un filtro.</div>';
+        return;
+      }
+
+      Plotly.newPlot(plotId, traces, {
+        ...darkLayout,
+        hovermode: 'x unified',
+        showlegend: true,
+        legend: { orientation: 'h', y: 1.08, x: 0, font: { size: 9 } },
+        yaxis: { ...darkLayout.yaxis, title: 'Unidades' }
+      }, plotConfig);
+    }
+
+    async function rerunWithCapacities() {
+      if (!validateCompatibleOptions()) return;
+
+      const table = document.querySelector('#estaciones-container table');
+      if (!table) {
+        alert("No se encontró la tabla de estaciones para recalcular.");
+        return;
+      }
 
       const capacities = [];
       const rows = table.querySelectorAll("tr");
       for (let i = 1; i < rows.length; i++) {
         const cells = rows[i].querySelectorAll("td");
-        if (cells.length >= 3) {
-          capacities.push(parseFloat(cells[2].innerText) || 1);
+        if (cells.length < 3) continue;
+        const rawCapacity = cells[2].innerText.replace(',', '.').trim();
+        const parsedCapacity = Number(rawCapacity);
+        if (!Number.isFinite(parsedCapacity) || parsedCapacity <= 0) {
+          alert(`Capacidad inválida en la fila ${i}. Ingrese un número mayor a 0.`);
+          return;
         }
+        capacities.push(parsedCapacity);
       }
 
       if (capacities.length !== 4) {
@@ -997,63 +1302,19 @@
         return;
       }
 
-      // 2. Preparar payload (igual que la simulación normal pero con override)
-      const data = {};
-      const tableBody = document.querySelector('#demand-table tbody');
-      if (!tableBody) return;
-
-      const monRows = tableBody.querySelectorAll('tr');
-      monRows.forEach(row => {
-        const month = row.querySelector('td:first-child').innerText.trim();
-        const inputs = row.querySelectorAll('input');
-        data[month] = Array.from(inputs).map(inp => parseFloat(inp.value) || 0);
-      });
-
-      const payload = {
-        data: data,
-        tiempos_procesos: {
-          min_firstS: parseFloat(document.getElementById('min_firstS').value),
-          max_firstS: parseFloat(document.getElementById('max_firstS').value),
-          min_pas1: parseFloat(document.getElementById('min_pas1').value),
-          max_pas1: parseFloat(document.getElementById('max_pas1').value),
-          min_pas2: parseFloat(document.getElementById('min_pas2').value),
-          max_pas2: parseFloat(document.getElementById('max_pas2').value),
-          min_pas3: parseFloat(document.getElementById('min_pas3').value),
-          max_pas3: parseFloat(document.getElementById('max_pas3').value),
-          min_pas4: parseFloat(document.getElementById('min_pas4').value),
-          max_pas4: parseFloat(document.getElementById('max_pas4').value),
-          min_pas5: parseFloat(document.getElementById('min_pas5').value),
-          max_pas5: parseFloat(document.getElementById('max_pas5').value)
-        },
-        reps: parseInt(document.getElementById('reps').value),
-        obj: document.getElementById('objective').value,
-        make_plots: true,
-        use_consecutive: document.getElementById('consecutive').checked,
-        use_smoothing: document.getElementById('smoothing').checked,
-        alpha: parseFloat(document.getElementById('alpha').value),
-        smooth_pct: parseFloat(document.getElementById('smooth_pct').value) / 100,
-        capacidades_override: capacities
-      };
-
-      // 3. Ejecutar simulación
+      const payload = buildPayload(capacities);
       const resultsRecalcEl = document.getElementById('results-recalc');
       resultsRecalcEl.classList.remove('hidden');
-      resultsRecalcEl.innerHTML = `
-        <div class="flex items-center justify-center p-12 flex-col mt-4">
-          <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-500 mb-4"></div>
-          <span class="text-brand-400 font-medium text-lg">Recalculando con nuevas capacidades...</span>
-          <p class="text-[11px] text-gray-500 mt-2 uppercase tracking-widest animate-pulse">Este proceso puede tardar unos segundos...</p>
-        </div>`;
+      const stopProgress = startProgressAnimation(resultsRecalcEl, "Recalculando con nuevas capacidades...");
       resultsRecalcEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-      // Add the arrow link in the original table's header if not present
       const originalHeader = document.querySelector('#table-recalc-header div');
       if (originalHeader && !document.getElementById('jump-arrow')) {
-        originalHeader.innerHTML += `
+        originalHeader.insertAdjacentHTML('beforeend', `
             <a id="jump-arrow" href="#results-recalc" class="ml-2 px-3 py-2 border border-brand-500/50 text-brand-400 hover:text-brand-300 hover:bg-brand-500/10 text-xs font-semibold rounded-lg inline-flex items-center gap-1 neon-glow transition-all whitespace-nowrap">
               ⬇ Ver Resultado
             </a>
-          `;
+          `);
       }
 
       try {
@@ -1063,15 +1324,22 @@
           body: JSON.stringify(payload)
         });
         const result = await response.json();
-
         if (!response.ok || result.error) throw new Error(result.error || 'Error desconocido');
-        renderResults(result, true);
 
-        // Scroll to top of recalc results
+        renderResults(result, true);
+        renderManualCapacityFeedback(result);
+        lastResult = result;
+
         document.getElementById('results-recalc').scrollIntoView({ behavior: 'smooth', block: 'start' });
       } catch (error) {
         console.error('Error:', error);
         resultsRecalcEl.innerHTML = `<div class="glass-card p-6 border-red-500/50 text-red-400"><strong>Error:</strong> ${error.message}</div>`;
+        const feedbackEl = document.getElementById('manual-capacity-feedback');
+        if (feedbackEl) {
+          feedbackEl.innerHTML = `<div class="mt-4 p-4 rounded-xl border border-red-500/30 bg-red-500/10 text-sm text-red-300"><b>Error al recalcular:</b> ${error.message}</div>`;
+        }
+      } finally {
+        stopProgress();
       }
     }
   </script>
