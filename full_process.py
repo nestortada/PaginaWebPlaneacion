@@ -8,7 +8,7 @@ import math
 try:
     from pulp import LpProblem, LpVariable, lpSum, value, LpStatus, PULP_CBC_CMD
     HAS_PULP = True
-except ImportError:
+except Exception:
     # PuLP is not available in this environment.  We will use SciPy as a
     # fallback for linear programming.  Note that some features (binary
     # variables, certain optional constraints) are not supported with

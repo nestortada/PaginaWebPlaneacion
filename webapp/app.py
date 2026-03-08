@@ -12,22 +12,29 @@ import base64
 import io
 import math
 import random
+import traceback
+from functools import lru_cache
 from numbers import Number
+from pathlib import Path
 from fastapi import FastAPI, Request, Body
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from full_process import run_full_process
-
 # Create FastAPI instance
 app = FastAPI()
 
-# Mount static directory for any CSS/JS assets if needed
-app.mount("/static", StaticFiles(directory="webapp/static"), name="static")
+# Resolve paths from this file to avoid cwd-dependent issues in serverless runtimes.
+BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static"
+TEMPLATES_DIR = BASE_DIR / "templates"
+
+# Mount static directory for any CSS/JS assets if needed.
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 # Setup Jinja2 templates
-templates = Jinja2Templates(directory="webapp/templates")
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
 # Default data and process times to populate the form when the page loads
 DEFAULT_DATA = {
@@ -140,6 +147,13 @@ def round_value(value, decimals: int = 2):
     """Round numeric scalars, leave other values untouched."""
     return round(float(value), decimals) if isinstance(value, Number) else value
 
+
+@lru_cache(maxsize=1)
+def get_run_full_process():
+    """Lazy-load heavy optimization module to reduce cold-start failures."""
+    from full_process import run_full_process
+    return run_full_process
+
 @app.get("/", response_class=HTMLResponse)
 async def read_index(request: Request):
     """Serve the main page with default data embedded."""
@@ -183,7 +197,7 @@ async def run_simulation(payload: dict = Body(...)):
         costo_prod = float(payload.get("costo_prod", 1.0))
         costo_inv  = float(payload.get("costo_inv", 0.25))
         return_tables = bool(payload.get("return_tables", True))
-        make_plots    = bool(payload.get("make_plots", True))
+        make_plots    = bool(payload.get("make_plots", False))
         reps = int(payload.get("reps", 10))
         verbose = bool(payload.get("verbose", True))
         capacidades_override = payload.get("capacidades_override")
@@ -194,6 +208,7 @@ async def run_simulation(payload: dict = Body(...)):
         data = {str(k): [float(x) for x in v] for k, v in data.items()}
 
         # Run the process
+        run_full_process = get_run_full_process()
         result = run_full_process(
             data=data,
             p_inv_inicial=p_inv_inicial,
@@ -366,4 +381,7 @@ async def run_simulation(payload: dict = Body(...)):
             "json_sim_estaciones": json_sim_estaciones
         })
     except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=500)
+        return JSONResponse(
+            {"error": str(e), "traceback": traceback.format_exc(limit=8)},
+            status_code=500
+        )
