@@ -173,9 +173,12 @@ async def run_simulation(payload: dict = Body(...)):
                 escape=False,
                 float_format=lambda x: f"{x:.2f}"
             )
-            # Add some basic Tailwind styling to the generated generic HTML table tags
-            html = html.replace('<th>', '<th class="px-4 py-3 bg-white/5 border-b border-white/10 font-semibold text-white">')
-            html = html.replace('<td>', '<td class="px-4 py-3 border-b border-white/10">')
+            # Remove any pandas default styling that might override ours
+            html = html.replace(' style="text-align: right;"', '')
+            
+            # Add basic Tailwind styling and ensure left alignment
+            html = html.replace('<th>', '<th class="px-4 py-3 bg-white/5 border-b border-white/10 font-semibold text-white text-left">')
+            html = html.replace('<td>', '<td class="px-4 py-3 border-b border-white/10 text-left">')
             html = html.replace('<tr>', '<tr class="hover:bg-white/5 transition-colors">')
             
             return html
@@ -189,13 +192,26 @@ async def run_simulation(payload: dict = Body(...)):
             df_copy = round_dataframe(df_copy, decimals=decimals)
             return df_copy.to_dict(orient='records')
 
-        desagg_df = result['disagg']['df']
+        desagg_df = result['disagg']['df'].copy()
+        if "Producto_lbl" in desagg_df.columns:
+            desagg_df = desagg_df.drop(columns=["Producto_lbl"])
+        if "Producto" in desagg_df.columns: # Also remove numeric ID if present
+            desagg_df = desagg_df.drop(columns=["Producto"])
+
         tabla_prod_df = result['tabla_produccion']
         if tabla_prod_df is not None:
-            tabla_prod_df = tabla_prod_df.copy().reset_index().rename(columns={"index": "Mes"})
+            tabla_prod_df = tabla_prod_df.copy()
+            if "Producto_lbl" in tabla_prod_df.columns:
+                tabla_prod_df = tabla_prod_df.drop(columns=["Producto_lbl"])
+            tabla_prod_df = tabla_prod_df.reset_index().rename(columns={"index": "Mes"})
+
         tabla_inv_df = result['tabla_inventario']
         if tabla_inv_df is not None:
-            tabla_inv_df = tabla_inv_df.copy().reset_index().rename(columns={"index": "Mes"})
+            tabla_inv_df = tabla_inv_df.copy()
+            if "Producto_lbl" in tabla_inv_df.columns:
+                tabla_inv_df = tabla_inv_df.drop(columns=["Producto_lbl"])
+            tabla_inv_df = tabla_inv_df.reset_index().rename(columns={"index": "Mes"})
+
         sim_totales_df = result['sim_totales']
         sim_productos_df = result['sim_productos']
         sim_estaciones_df = result['sim_estaciones']
@@ -209,6 +225,10 @@ async def run_simulation(payload: dict = Body(...)):
         df_totales  = df_to_html(sim_totales_df)
         df_productos= df_to_html(sim_productos_df)
         df_estaciones= df_to_html(sim_estaciones_df)
+
+        # Calculate totals for KPI cards
+        total_demand = sum(sum(v) for v in data.values())
+        total_production = tabla_prod_df.iloc[:, 1:].sum().sum() if tabla_prod_df is not None else 0
 
         # JSON serializable tables for frontend interactive plotting
         json_agg_table = df_to_json(result['agg']['df'])
@@ -242,6 +262,8 @@ async def run_simulation(payload: dict = Body(...)):
         return JSONResponse({
             "status": agg_status,
             "z": agg_z,
+            "total_demand": total_demand,
+            "total_production": total_production,
             "tabla_desag": tabla_desag,
             "tabla_prod": tabla_prod,
             "tabla_inv": tabla_inv,

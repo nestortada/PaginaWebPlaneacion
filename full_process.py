@@ -816,7 +816,7 @@ def run_experiment(
         "IC95_HW": [hw_arr, hw_tp, hw_ct, hw_wp, hw_tk]
     })
     # per product table
-    products = ["Energizante","Isotónica","Agua saborizada","Té","Jugo"]
+    products = ["Energizantes", "Isotónicas", "Agua Saborizada", "Té", "Jugo"]
     rows=[]
     for j, p in enumerate(products):
         th   = [m['throughput_day'][j]   for m in results]
@@ -844,7 +844,12 @@ def run_experiment(
         })
     df_productos = pd.DataFrame(rows)
     # per station table
-    station_names = ["Recepción y Mezcla","Pasteurización","Llenado","Etiquetado"]
+    station_names = [
+        "Recepción y mezcla de ingredientes",
+        "Pasteurización y enfriamiento",
+        "Llenado y sellado de botellas",
+        "Etiquetado y empaque"
+    ]
     station_rows=[]
     for st in range(4):
         util = [m['utilizations'][st] for m in results]
@@ -1000,10 +1005,18 @@ def run_full_process(
     )
     df_desag = disagg_res["df"].copy()
     # --- Step 5: Create inventory and production tables ---
-    product_labels = {j: f"Producto_{j+1}" for j in range(num_productos)}
+    product_names = ["Energizantes", "Isotónicas", "Agua Saborizada", "Té", "Jugo"]
+    product_labels = {j: product_names[j] if j < len(product_names) else f"Producto_{j+1}" for j in range(num_productos)}
     df_desag["Producto_lbl"] = df_desag["Producto"].map(product_labels)
     tabla_inventario = df_desag.pivot(index="Mes", columns="Producto_lbl", values="Inventario").fillna(0)
     tabla_produccion = df_desag.pivot(index="Mes", columns="Producto_lbl", values="Produccion").fillna(0)
+    
+    # Remove index and column names to avoid "Producto_lbl" and "Mes" header extra row
+    tabla_inventario.index.name = None
+    tabla_inventario.columns.name = None
+    tabla_produccion.index.name = None
+    tabla_produccion.columns.name = None
+
     tabla_inventario["Total_mes"] = tabla_inventario.sum(axis=1)
     tabla_produccion["Total_mes"] = tabla_produccion.sum(axis=1)
     orden_meses = [

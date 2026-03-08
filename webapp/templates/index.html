@@ -66,8 +66,23 @@
     .table-glass th {
       border: 1px solid rgba(255, 255, 255, 0.05);
       padding: 0.5rem;
-      text-align: center;
+      text-align: left;
+      /* Left align by default for clarity */
     }
+
+    .table-glass th {
+      text-align: left !important;
+      font-weight: 600;
+      color: #94a3b8;
+    }
+
+    /* Column specific alignment if needed */
+    .table-glass td {
+      text-align: left;
+    }
+
+    /* Centered columns for numbers can be added via specific classes if desired, 
+       but left-aligned headers was the primary request */
 
     ::-webkit-scrollbar {
       width: 8px;
@@ -500,6 +515,8 @@
 
     <!-- RESULTADOS -->
     <div id="results" class="space-y-6 pb-20"></div>
+    <!-- RECALCULATED RESULTS -->
+    <div id="results-recalc" class="space-y-6 pb-20 mt-12 border-t border-brand-500/30 pt-12 hidden"></div>
   </main>
 
   <!-- Load SheetJS & Plotly -->
@@ -531,7 +548,11 @@
     function formatNumber(value, options = {}) {
       const num = Number(value);
       if (!Number.isFinite(num)) return value === 0 ? "0.00" : (value ?? "");
-      return new Intl.NumberFormat("es-ES", Object.assign({ minimumFractionDigits: 2, maximumFractionDigits: 2 }, options)).format(num);
+      const finalOptions = { minimumFractionDigits: 2, maximumFractionDigits: 2, ...options };
+      if (finalOptions.minimumFractionDigits > finalOptions.maximumFractionDigits) {
+        finalOptions.minimumFractionDigits = finalOptions.maximumFractionDigits;
+      }
+      return new Intl.NumberFormat("es-ES", finalOptions).format(num);
     }
 
     // Handle Excel Upload
@@ -720,20 +741,61 @@
       }
     });
 
-    function renderResults(result) {
-      const resultsEl = document.getElementById('results');
+    function renderResults(result, isRecalc = false) {
+      const resultsEl = document.getElementById(isRecalc ? 'results-recalc' : 'results');
+
+      if (!isRecalc) {
+        window.originalZ = result.z;
+        const recalcEl = document.getElementById('results-recalc');
+        if (recalcEl) {
+          recalcEl.innerHTML = '';
+          recalcEl.classList.add('hidden');
+        }
+      } else {
+        document.getElementById('results-recalc').classList.remove('hidden');
+      }
+
+      const suffix = isRecalc ? '-recalc' : '';
+
+      // Calcular comparación de Z si existe resultado anterior y estamos recalculando
+      let zComparisonHtml = "";
+      if (isRecalc && window.originalZ !== undefined) {
+        const isBetter = result.z <= window.originalZ;
+        zComparisonHtml = `
+          <div class="mt-4 p-4 rounded-xl border ${isBetter ? 'border-green-500/30 bg-green-500/10' : 'border-red-500/30 bg-red-500/10'} feedback-card">
+            <div class="flex justify-between items-center">
+              <div>
+                <p class="text-xs uppercase text-gray-400 mb-1">Comparación de Valor Objetivo</p>
+                <div class="flex items-baseline gap-4">
+                  <span class="text-lg font-medium ${isBetter ? 'text-green-400' : 'text-red-400'}">Actual: ${formatCurrency(result.z)}</span>
+                  <span class="text-sm text-gray-500">Original: ${formatCurrency(window.originalZ)}</span>
+                </div>
+              </div>
+              <div class="text-right">
+                <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase ${isBetter ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}">
+                  ${isBetter ? 'Mejor ↑' : 'Peor ↓'}
+                </span>
+              </div>
+            </div>
+          </div>
+        `;
+      }
 
       let html = `
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-2xl font-light text-white">Resultados de la Simulación</h2>
-                    <button class="px-4 py-2 border border-brand-500/50 hover:bg-brand-500/20 text-brand-300 rounded-lg transition-colors flex gap-2 items-center text-sm neon-glow" onclick="alert('Funcionalidad de exportación a implementar')">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-                        Descargar Excel
-                    </button>
+                <div class="flex justify-between items-center mb-6" id="recalc-header-actions${suffix}">
+                    <h2 class="text-2xl font-light text-white">${isRecalc ? 'Resultados Recalculados' : 'Resultados de la Simulación'}</h2>
+                    <div class="flex gap-2">
+                      <button class="px-4 py-2 border border-brand-500/50 hover:bg-brand-500/20 text-brand-300 rounded-lg transition-colors flex gap-2 items-center text-sm neon-glow" onclick="alert('Funcionalidad de exportación a implementar')">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                          Descargar Excel
+                      </button>
+                    </div>
                 </div>
 
+                ${zComparisonHtml}
+
                 <!-- KPI Cards -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 mt-6">
                     <div class="glass-card p-5 border-t-2 border-t-brand-500">
                         <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Estado</p>
                         <p class="text-xl font-semibold text-green-400">${result.status || 'Éxito'}</p>
@@ -744,82 +806,272 @@
                     </div>
                     <div class="glass-card p-5">
                         <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Demanda Total</p>
-                        <p class="text-xl font-semibold text-gray-200">Ver Detalles</p>
+                        <p class="text-xl font-semibold text-gray-200">${formatNumber(result.total_demand, { maximumFractionDigits: 0 })} unidades</p>
                     </div>
                     <div class="glass-card p-5">
                         <p class="text-xs text-gray-400 uppercase tracking-wider mb-1">Producción Total</p>
-                        <p class="text-xl font-semibold text-gray-200">Ver Detalles</p>
+                        <p class="text-xl font-semibold text-gray-200">${formatNumber(result.total_production, { maximumFractionDigits: 0 })} unidades</p>
                     </div>
                 </div>
 
                 <!-- Charts -->
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                     <div class="glass-card p-4">
-                        <h3 class="text-sm font-medium text-gray-300 mb-2">Demanda vs Producción</h3>
-                        <div id="plot-demand" class="w-full h-80"></div>
+                        <h3 class="text-sm font-medium text-gray-300 mb-2">Producción Mensual por Producto</h3>
+                        <div id="plot-prod-mes${suffix}" class="w-full h-80"></div>
                     </div>
-                    <div class="glass-card p-4">
-                        <h3 class="text-sm font-medium text-gray-300 mb-2">Métricas de Simulación por Producto</h3>
-                        <div id="plot-sim-productos" class="w-full h-80"></div>
+                    <div class="glass-card p-4 relative">
+                        <div class="flex justify-between items-center mb-2">
+                           <h3 class="text-sm font-medium text-gray-300">Métricas de Simulación</h3>
+                           <select id="metric-selector${suffix}" class="bg-black/40 border border-white/10 rounded-lg text-[10px] text-gray-300 px-2 py-1 focus:outline-none focus:border-brand-500">
+                              <option value="Throughput_media">Throughput (lotes/día)</option>
+                              <option value="CycleTime_media_min">Cycle time (min)</option>
+                              <option value="WIP_media" selected>WIP (lotes)</option>
+                              <option value="TaktTime_media_min">Takt time (min/lote)</option>
+                              <option value="Entradas_365d_media">Entradas en 365d (lotes)</option>
+                           </select>
+                        </div>
+                        <div id="plot-sim-productos${suffix}" class="w-full h-80"></div>
                     </div>
                 </div>
 
                 <!-- Data Tables -->
                 <div class="grid grid-cols-1 gap-6">
                     <div class="glass-card p-4 overflow-hidden flex flex-col">
-                        <h3 class="text-sm font-medium text-gray-300 mb-4">Plan Agregado</h3>
+                        <h3 class="text-sm font-medium text-gray-300 mb-4">Métricas de Simulación por Producto</h3>
                         <div class="overflow-x-auto">
-                            ${result.tabla_desag || '<div class="text-gray-500">Sin datos</div>'}
+                            ${result.df_productos || '<div class="text-gray-500">Sin datos</div>'}
                         </div>
                     </div>
-                    <div class="glass-card p-4 overflow-hidden flex flex-col">
-                        <h3 class="text-sm font-medium text-gray-300 mb-4">Producción por Producto</h3>
-                        <div class="overflow-x-auto">
-                            ${result.tabla_prod || '<div class="text-gray-500">Sin datos</div>'}
+                    <div class="glass-card p-6 border-l-4 border-accent-500 bg-accent-500/5">
+                        <div class="flex justify-between items-center mb-4" id="table-recalc-header${suffix}">
+                          <h3 class="text-lg font-medium text-white">Dimensionamiento de Estaciones</h3>
+                          ${!isRecalc ? `
+                          <div class="flex items-center gap-3">
+                            <button onclick="rerunWithCapacities()" class="px-4 py-2 bg-accent-600 hover:bg-accent-500 text-white text-xs font-bold rounded-lg transition-all shadow-lg shadow-accent-600/20">
+                              Recalcular con Capacidades Manuales
+                            </button>
+                          </div>` : ''}
                         </div>
-                    </div>
-                    <div class="glass-card p-4 overflow-hidden flex flex-col">
-                        <h3 class="text-sm font-medium text-gray-300 mb-4">Utilización de Estaciones</h3>
-                        <div class="overflow-x-auto">
+                        <p class="text-xs text-gray-400 mb-4">Edite la columna <b>"Capacidad"</b> en la tabla de abajo para probar diferentes escenarios de maquinaria.</p>
+                        <div class="overflow-x-auto" id="estaciones-container${suffix}">
                             ${result.df_estaciones || '<div class="text-gray-500">Sin datos</div>'}
                         </div>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      <div class="glass-card p-4 overflow-hidden flex flex-col">
+                          <h3 class="text-sm font-medium text-gray-300 mb-4">Producción por Producto (Litros)</h3>
+                          <div class="overflow-x-auto">
+                              ${result.tabla_prod || '<div class="text-gray-500">Sin datos</div>'}
+                          </div>
+                      </div>
+                      <div class="glass-card p-4 overflow-hidden flex flex-col">
+                          <h3 class="text-sm font-medium text-gray-300 mb-4">Inventario por Producto (Litros)</h3>
+                          <div class="overflow-x-auto">
+                              ${result.tabla_inv || '<div class="text-gray-500">Sin datos</div>'}
+                          </div>
+                      </div>
                     </div>
                 </div>
             `;
       resultsEl.innerHTML = html;
 
-      renderPlots(result);
+      // Hacer editable la columna de capacidad 
+      const table = document.querySelector(`#estaciones-container${suffix} table`);
+      if (table) {
+        table.querySelectorAll("tr").forEach((row, idx) => {
+          if (idx === 0) return; // Skip header
+          const cells = row.querySelectorAll("td");
+          if (cells.length >= 3) {
+            cells[2].setAttribute("contenteditable", "true");
+            cells[2].classList.add("bg-white/10", "cursor-text", "focus:bg-white/20", "outline-none", "rounded-sm");
+          }
+        });
+      }
+
+      document.getElementById(`metric-selector${suffix}`).addEventListener('change', () => {
+        updateSimulationPlot(result, document.getElementById(`metric-selector${suffix}`).value, isRecalc);
+      });
+
+      renderPlots(result, isRecalc);
     }
 
-    function renderPlots(result) {
+    function renderPlots(result, isRecalc = false) {
+      const suffix = isRecalc ? '-recalc' : '';
       const plotConfig = { responsive: true, displaylogo: false };
       const darkLayout = {
         paper_bgcolor: 'rgba(0,0,0,0)',
         plot_bgcolor: 'rgba(0,0,0,0)',
-        font: { color: '#94a3b8' },
+        font: { color: '#94a3b8', size: 10 },
         xaxis: { gridcolor: 'rgba(255,255,255,0.05)', zerolinecolor: 'rgba(255,255,255,0.1)' },
         yaxis: { gridcolor: 'rgba(255,255,255,0.05)', zerolinecolor: 'rgba(255,255,255,0.1)' },
         margin: { l: 40, r: 20, t: 30, b: 40 }
       };
 
-      if (result.json_agg_table) {
-        const dates = result.json_agg_table.map(r => r.Mes);
-        const prod = result.json_agg_table.map(r => r['P(t)']);
-        const dem = result.json_agg_table.map(r => r['D(t)']);
+      // 1. Producción Mensual por Producto (Line Chart)
+      if (result.json_tabla_produccion) {
+        const prodData = result.json_tabla_produccion;
+        const months = prodData.map(r => r.Mes);
+        const products = Object.keys(prodData[0]).filter(k => k !== 'Mes');
+        const colors = ['#8b5cf6', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444'];
 
-        Plotly.newPlot('plot-demand', [
-          { x: dates, y: prod, name: 'Producción', fill: 'tozeroy', type: 'scatter', line: { color: '#8b5cf6' }, fillcolor: 'rgba(139,92,246,0.2)' },
-          { x: dates, y: dem, name: 'Demanda', type: 'scatter', line: { color: '#38bdf8', dash: 'dot' } }
-        ], { ...darkLayout, showlegend: true, legend: { orientation: 'h', y: 1.1 } }, plotConfig);
+        const traces = products.map((p, i) => ({
+          x: months,
+          y: prodData.map(r => r[p]),
+          name: p.replace('Producto_', 'P'),
+          type: 'scatter',
+          mode: 'lines+markers',
+          line: { color: colors[i % colors.length], width: 2, shape: 'spline' },
+          marker: { size: 6 }
+        }));
+
+        Plotly.newPlot(`plot-prod-mes${suffix}`, traces, {
+          ...darkLayout,
+          showlegend: true,
+          legend: { orientation: 'h', y: 1.2, x: 0.5, xanchor: 'center', font: { size: 9 } }
+        }, plotConfig);
       }
 
-      if (result.json_sim_productos) {
-        const prods = result.json_sim_productos.map(r => r.Producto);
-        const wip = result.json_sim_productos.map(r => r.WIP_media);
+      // 2. Métricas de Simulación (Initial: WIP)
+      updateSimulationPlot(result, 'WIP_media', isRecalc);
+    }
 
-        Plotly.newPlot('plot-sim-productos', [
-          { x: prods, y: wip, type: 'bar', marker: { color: '#0ea5e9', opacity: 0.8, line: { color: '#38bdf8', width: 1 } } }
-        ], { ...darkLayout, yaxis: { title: 'WIP (Lotes)' } }, plotConfig);
+    function updateSimulationPlot(result, metric, isRecalc = false) {
+      const suffix = isRecalc ? '-recalc' : '';
+      const plotConfig = { responsive: true, displaylogo: false };
+      const darkLayout = {
+        paper_bgcolor: 'rgba(0,0,0,0)',
+        plot_bgcolor: 'rgba(0,0,0,0)',
+        font: { color: '#94a3b8', size: 10 },
+        xaxis: { gridcolor: 'rgba(255,255,255,0.05)', zerolinecolor: 'rgba(255,255,255,0.1)' },
+        yaxis: { gridcolor: 'rgba(255,255,255,0.05)', zerolinecolor: 'rgba(255,255,255,0.1)' },
+        margin: { l: 40, r: 20, t: 30, b: 40 }
+      };
+
+      if (result.json_sim_productos) {
+        const prods = result.json_sim_productos.map(r => r.Producto.replace('Producto_', 'P'));
+        const values = result.json_sim_productos.map(r => r[metric]);
+
+        const metricNames = {
+          'Throughput_media': 'Throughput (lotes/día)',
+          'CycleTime_media_min': 'Cycle time (min)',
+          'WIP_media': 'WIP (lotes)',
+          'TaktTime_media_min': 'Takt time (min/lote)',
+          'Entradas_365d_media': 'Entradas en 365d'
+        };
+
+        Plotly.newPlot(`plot-sim-productos${suffix}`, [
+          {
+            x: prods,
+            y: values,
+            type: 'bar',
+            marker: {
+              color: '#0ea5e9',
+              opacity: 0.8,
+              line: { color: '#38bdf8', width: 1 }
+            },
+            text: values.map(v => v.toFixed(2)),
+            textposition: 'auto',
+          }
+        ], { ...darkLayout, yaxis: { title: metricNames[metric] || metric } }, plotConfig);
+      }
+    }
+
+    async function rerunWithCapacities(fromRecalc = false) {
+      // 1. Extraer capacidades de la tabla
+      const suffix = fromRecalc ? '-recalc' : '';
+      const table = document.querySelector(`#estaciones-container${suffix} table`);
+      if (!table) return;
+
+      const capacities = [];
+      const rows = table.querySelectorAll("tr");
+      for (let i = 1; i < rows.length; i++) {
+        const cells = rows[i].querySelectorAll("td");
+        if (cells.length >= 3) {
+          capacities.push(parseFloat(cells[2].innerText) || 1);
+        }
+      }
+
+      if (capacities.length !== 4) {
+        alert("Se requieren 4 estaciones para recalcular.");
+        return;
+      }
+
+      // 2. Preparar payload (igual que la simulación normal pero con override)
+      const data = {};
+      const tableBody = document.querySelector('#demand-table tbody');
+      if (!tableBody) return;
+
+      const monRows = tableBody.querySelectorAll('tr');
+      monRows.forEach(row => {
+        const month = row.querySelector('td:first-child').innerText.trim();
+        const inputs = row.querySelectorAll('input');
+        data[month] = Array.from(inputs).map(inp => parseFloat(inp.value) || 0);
+      });
+
+      const payload = {
+        data: data,
+        tiempos_procesos: {
+          min_firstS: parseFloat(document.getElementById('min_firstS').value),
+          max_firstS: parseFloat(document.getElementById('max_firstS').value),
+          min_pas1: parseFloat(document.getElementById('min_pas1').value),
+          max_pas1: parseFloat(document.getElementById('max_pas1').value),
+          min_pas2: parseFloat(document.getElementById('min_pas2').value),
+          max_pas2: parseFloat(document.getElementById('max_pas2').value),
+          min_pas3: parseFloat(document.getElementById('min_pas3').value),
+          max_pas3: parseFloat(document.getElementById('max_pas3').value),
+          min_pas4: parseFloat(document.getElementById('min_pas4').value),
+          max_pas4: parseFloat(document.getElementById('max_pas4').value),
+          min_pas5: parseFloat(document.getElementById('min_pas5').value),
+          max_pas5: parseFloat(document.getElementById('max_pas5').value)
+        },
+        reps: parseInt(document.getElementById('reps').value),
+        obj: document.getElementById('objective').value,
+        make_plots: true,
+        use_consecutive: document.getElementById('consecutive').checked,
+        use_smoothing: document.getElementById('smoothing').checked,
+        alpha: parseFloat(document.getElementById('alpha').value),
+        smooth_pct: parseFloat(document.getElementById('smooth_pct').value) / 100,
+        capacidades_override: capacities
+      };
+
+      // 3. Ejecutar simulación
+      const resultsRecalcEl = document.getElementById('results-recalc');
+      resultsRecalcEl.classList.remove('hidden');
+      resultsRecalcEl.innerHTML = `
+        <div class="flex items-center justify-center p-12 flex-col mt-4">
+          <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-500 mb-4"></div>
+          <span class="text-brand-400 font-medium text-lg">Recalculando con nuevas capacidades...</span>
+          <p class="text-[11px] text-gray-500 mt-2 uppercase tracking-widest animate-pulse">Este proceso puede tardar unos segundos...</p>
+        </div>`;
+      resultsRecalcEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      // Add the arrow link in the original table's header if not present
+      const originalHeader = document.querySelector('#table-recalc-header div');
+      if (originalHeader && !document.getElementById('jump-arrow')) {
+        originalHeader.innerHTML += `
+            <a id="jump-arrow" href="#results-recalc" class="ml-2 px-3 py-2 border border-brand-500/50 text-brand-400 hover:text-brand-300 hover:bg-brand-500/10 text-xs font-semibold rounded-lg inline-flex items-center gap-1 neon-glow transition-all whitespace-nowrap">
+              ⬇ Ver Resultado
+            </a>
+          `;
+      }
+
+      try {
+        const response = await fetch('/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+
+        if (!response.ok || result.error) throw new Error(result.error || 'Error desconocido');
+        renderResults(result, true);
+
+        // Scroll to top of recalc results
+        document.getElementById('results-recalc').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } catch (error) {
+        console.error('Error:', error);
+        resultsRecalcEl.innerHTML = `<div class="glass-card p-6 border-red-500/50 text-red-400"><strong>Error:</strong> ${error.message}</div>`;
       }
     }
   </script>
