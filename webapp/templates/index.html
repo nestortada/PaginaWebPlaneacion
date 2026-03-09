@@ -299,37 +299,94 @@
               class="input-glass" /></div>
 
           <div
-            class="col-span-2 md:col-span-4 lg:col-span-6 grid grid-cols-1 md:grid-cols-3 gap-6 mt-4 p-4 border border-white/10 rounded-xl bg-white/5">
+            class="col-span-2 md:col-span-4 lg:col-span-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mt-4 p-4 border border-white/10 rounded-xl bg-white/5">
             <div class="flex flex-col space-y-2">
               <label class="flex items-center gap-2 text-sm text-gray-300 font-medium cursor-pointer"
-                title="Evita programar producción en meses no consecutivos"><input type="checkbox"
+                title="Evita programar producción en meses consecutivos"><input type="checkbox"
                   id="use_no_consecutive" class="form-checkbox text-brand-500 rounded bg-black/20 border-white/20">
-                Evitar Meses No Consecutivos</label>
+                Evitar Producción Consecutiva</label>
             </div>
-            <div class="flex flex-col space-y-2 border-l border-white/10 pl-6">
+
+            <div class="flex flex-col space-y-2 md:border-l md:border-white/10 md:pl-6">
               <label class="flex items-center gap-2 text-sm text-gray-300 font-medium cursor-pointer"
-                title="Activa un inventario de seguridad basado en el error estándar de la demanda"><input
-                  type="checkbox" id="use_safe_stock"
-                  class="form-checkbox text-brand-500 rounded bg-black/20 border-white/20"> Usar Inventario
-                Seguridad</label>
+                title="Activa inventario de seguridad basado en la demanda del siguiente mes"><input type="checkbox"
+                  id="use_safe_stock" class="form-checkbox text-brand-500 rounded bg-black/20 border-white/20">
+                Usar Inventario Seguridad</label>
               <div id="alpha-container" class="flex flex-col hidden mt-2">
                 <label class="text-[10px] uppercase text-gray-400 mb-1"
-                  title="Factor Alpha usado para calcular el inventario de seguridad">Factor Alpha</label>
+                  title="Factor Alpha usado para calcular inventario de seguridad">Factor Alpha</label>
                 <input id="alpha" type="number" step="0.01" min="0" value="0.5" data-default="0.5"
                   class="input-glass text-xs p-1 h-8" />
               </div>
             </div>
-            <div class="flex flex-col space-y-2 border-l border-white/10 pl-6">
+
+            <div class="flex flex-col space-y-2 xl:border-l xl:border-white/10 xl:pl-6">
               <label class="flex items-center gap-2 text-sm text-gray-300 font-medium cursor-pointer"
-                title="Aplica suavización a la producción para no tener saltos abruptos entre meses"><input
-                  type="checkbox" id="use_smooth"
+                title="Suaviza la producción mes a mes"><input type="checkbox" id="use_smooth"
                   class="form-checkbox text-brand-500 rounded bg-black/20 border-white/20"> Suavización de
                 Producción</label>
               <div id="smooth-pct-container" class="flex flex-col hidden mt-2">
                 <label class="text-[10px] uppercase text-gray-400 mb-1"
-                  title="Porcentaje de cambio máximo de producción permitido mes a mes">Porcentaje Suavización
-                  (±)</label>
+                  title="Porcentaje máximo de cambio mes a mes">Porcentaje Suavización (±)</label>
                 <input id="smooth_pct" type="number" step="0.01" min="0" max="1" value="0.20" data-default="0.20"
+                  class="input-glass text-xs p-1 h-8" />
+              </div>
+            </div>
+
+            <div class="flex flex-col space-y-2 xl:border-l xl:border-white/10 xl:pl-6">
+              <label class="flex items-center gap-2 text-sm text-gray-300 font-medium cursor-pointer"
+                title="Activa costo fijo por mes con producción y límite de capacidad"><input type="checkbox"
+                  id="use_fixed_cost_capacity"
+                  class="form-checkbox text-brand-500 rounded bg-black/20 border-white/20"> Costo Fijo + Capacidad</label>
+              <div id="fixed-capacity-container" class="flex flex-col hidden mt-2 gap-2">
+                <div class="flex flex-col">
+                  <label class="text-[10px] uppercase text-gray-400 mb-1" title="Capacidad máxima de producción mensual">Cap.
+                    Máxima (cap_max)</label>
+                  <input id="cap_max" type="number" step="1" min="0" value="1000000" data-default="1000000"
+                    class="input-glass text-xs p-1 h-8" />
+                </div>
+                <div class="flex flex-col">
+                  <label class="text-[10px] uppercase text-gray-400 mb-1" title="Costo fijo por activar producción en el mes">Costo
+                    Fijo</label>
+                  <input id="fixed_cost" type="number" step="1" min="0" value="1" data-default="1"
+                    class="input-glass text-xs p-1 h-8" />
+                </div>
+              </div>
+            </div>
+
+            <div class="flex flex-col space-y-2 md:border-l md:border-white/10 md:pl-6">
+              <label class="flex items-center gap-2 text-sm text-gray-300 font-medium cursor-pointer"
+                title="Limita los despidos por mes respecto a la plantilla previa"><input type="checkbox"
+                  id="use_layoff_limit" class="form-checkbox text-brand-500 rounded bg-black/20 border-white/20"> Limitar
+                Despidos</label>
+              <div id="layoff-container" class="flex flex-col hidden mt-2">
+                <label class="text-[10px] uppercase text-gray-400 mb-1"
+                  title="Porcentaje máximo de despidos por mes">Límite Despidos (layoff_pct)</label>
+                <input id="layoff_pct" type="number" step="0.01" min="0" max="1" value="0.10" data-default="0.10"
+                  class="input-glass text-xs p-1 h-8" />
+              </div>
+            </div>
+
+            <div class="flex flex-col space-y-2 xl:border-l xl:border-white/10 xl:pl-6">
+              <label class="flex items-center gap-2 text-sm text-gray-300 font-medium cursor-pointer"
+                title="Restringe horas regulares disponibles por mes"><input type="checkbox" id="use_max_hours"
+                  class="form-checkbox text-brand-500 rounded bg-black/20 border-white/20"> Límite Horas Regulares</label>
+              <div id="max-hours-container" class="flex flex-col hidden mt-2">
+                <label class="text-[10px] uppercase text-gray-400 mb-1"
+                  title="Máximo de horas regulares por mes">Horas Máx. (max_hours)</label>
+                <input id="max_hours" type="number" step="1" min="0" value="4160" data-default="4160"
+                  class="input-glass text-xs p-1 h-8" />
+              </div>
+            </div>
+
+            <div class="flex flex-col space-y-2 xl:border-l xl:border-white/10 xl:pl-6">
+              <label class="flex items-center gap-2 text-sm text-gray-300 font-medium cursor-pointer"
+                title="Permite cubrir demanda con producción tercerizada"><input type="checkbox" id="use_subcontracting"
+                  class="form-checkbox text-brand-500 rounded bg-black/20 border-white/20"> Subcontratación</label>
+              <div id="subcontracting-container" class="flex flex-col hidden mt-2">
+                <label class="text-[10px] uppercase text-gray-400 mb-1"
+                  title="Costo unitario de subcontratación">Costo Subcontratación (csc)</label>
+                <input id="csc" type="number" step="0.1" min="0" value="100" data-default="100"
                   class="input-glass text-xs p-1 h-8" />
               </div>
             </div>
@@ -574,9 +631,11 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.25.2.min.js"></script>
 
-  <script>
-    let lastResult = null;
-    let lastPayload = null;
+	  <script>
+	    let lastResult = null;
+	    let lastPayload = null;
+      let baseResult = null;
+      let recalcResult = null;
 
     function parseLocaleNumber(rawValue) {
       let normalized = String(rawValue ?? '').trim().replace(/\s+/g, '');
@@ -642,11 +701,12 @@
         .trim();
     }
 
-    const PARAM_NUMERIC_INPUT_IDS = [
-      'p_inv_inicial', 'p_inv_final', 'unidad', 'ct', 'ht', 'pit',
-      'crt', 'cot', 'cwt', 'cwt_prima', 'costo_maquina', 'costo_prod',
-      'costo_inv', 'reps', 'alpha', 'smooth_pct'
-    ];
+	    const PARAM_NUMERIC_INPUT_IDS = [
+	      'p_inv_inicial', 'p_inv_final', 'unidad', 'ct', 'ht', 'pit',
+	      'crt', 'cot', 'cwt', 'cwt_prima', 'costo_maquina', 'costo_prod',
+	      'costo_inv', 'reps', 'alpha', 'smooth_pct', 'cap_max', 'fixed_cost',
+	      'layoff_pct', 'max_hours', 'csc'
+	    ];
 
     function getInputStepDecimals(input) {
       const step = String(input?.getAttribute('step') || '').replace(',', '.').trim();
@@ -849,13 +909,22 @@
       }
     });
 
-    // Control Condicionales
-    document.getElementById('use_safe_stock').addEventListener('change', (e) => {
-      document.getElementById('alpha-container').classList.toggle('hidden', !e.target.checked);
-    });
-    document.getElementById('use_smooth').addEventListener('change', (e) => {
-      document.getElementById('smooth-pct-container').classList.toggle('hidden', !e.target.checked);
-    });
+	    // Control condicional de subparámetros
+	    function bindToggleContainer(toggleId, containerId) {
+	      const toggle = document.getElementById(toggleId);
+	      const container = document.getElementById(containerId);
+	      if (!toggle || !container) return;
+	      const sync = () => container.classList.toggle('hidden', !toggle.checked);
+	      toggle.addEventListener('change', sync);
+	      sync();
+	    }
+
+	    bindToggleContainer('use_safe_stock', 'alpha-container');
+	    bindToggleContainer('use_smooth', 'smooth-pct-container');
+	    bindToggleContainer('use_fixed_cost_capacity', 'fixed-capacity-container');
+	    bindToggleContainer('use_layoff_limit', 'layoff-container');
+	    bindToggleContainer('use_max_hours', 'max-hours-container');
+	    bindToggleContainer('use_subcontracting', 'subcontracting-container');
 
     // Control de Matriz de Demanda (Agregar / Eliminar Mes)
     const allMonths = [
@@ -911,15 +980,56 @@
       "Finalizando Reporte Ejecutivo..."
     ];
 
-    function validateCompatibleOptions() {
-      const noConsecutive = document.getElementById('use_no_consecutive').checked;
-      const useSmooth = document.getElementById('use_smooth').checked;
-      if (!noConsecutive || !useSmooth) return true;
-      alert("Matemáticamente imposible: No se puede resolver el modelo si activas 'Evitar Meses No Consecutivos' y 'Suavización de Producción' al mismo tiempo.\n\nLa primera obliga a detener la producción (caída del 100%), mientras que la segunda prohíbe cambios abruptos. Por favor, desactiva una de las dos.");
-      return false;
-    }
+	    function estimateRequiredProductionForFeasibility() {
+	      const demandByMonth = getDemandDataFromForm();
+	      const months = Object.keys(demandByMonth);
+	      const monthlyTotals = months.map((month) => (demandByMonth[month] || []).reduce((acc, val) => acc + Number(val || 0), 0));
+	      const totalDemand = monthlyTotals.reduce((acc, val) => acc + val, 0);
+	      const avgSales = monthlyTotals.length ? (totalDemand / monthlyTotals.length) : 0;
+	      const pInvInicial = fallbackNumber(document.getElementById('p_inv_inicial'));
+	      const pInvFinal = fallbackNumber(document.getElementById('p_inv_final'));
+	      const initialStock = avgSales * pInvInicial;
+	      const finalStock = avgSales * pInvFinal;
+	      const requiredProduction = totalDemand + finalStock - initialStock;
+	      return {
+	        monthsCount: months.length,
+	        totalDemand,
+	        initialStock,
+	        finalStock,
+	        requiredProduction: Math.max(0, requiredProduction)
+	      };
+	    }
 
-    function buildPayload(capacidadesOverride = null) {
+	    function validateCompatibleOptions() {
+	      const noConsecutive = document.getElementById('use_no_consecutive').checked;
+	      const useSmooth = document.getElementById('use_smooth').checked;
+	      const useSubcontracting = document.getElementById('use_subcontracting').checked;
+	      if (noConsecutive && useSmooth && !useSubcontracting) {
+	        alert("Combinación incompatible: no puedes activar simultáneamente 'Evitar Producción Consecutiva' y 'Suavización de Producción' cuando la subcontratación está desactivada.\n\nCon esa configuración, el modelo agregado se vuelve infactible. Desactiva una de esas restricciones o activa subcontratación.");
+	        return false;
+	      }
+
+	      const useFixedCapacity = document.getElementById('use_fixed_cost_capacity').checked;
+	      if (useFixedCapacity && !useSubcontracting) {
+	        const capMax = fallbackNumber(document.getElementById('cap_max'));
+	        const { monthsCount, requiredProduction } = estimateRequiredProductionForFeasibility();
+	        const activeMonthsMax = noConsecutive ? Math.ceil(monthsCount / 2) : monthsCount;
+	        const maxInternalProduction = Math.max(0, capMax) * Math.max(0, activeMonthsMax);
+	        if (requiredProduction > maxInternalProduction + 1e-6) {
+	          alert(
+	            "Advertencia de infactibilidad: con la configuración actual, la capacidad máxima interna no alcanza para cubrir la demanda total y el inventario final.\n\n" +
+	            `Producción requerida aproximada: ${formatNumber(requiredProduction, { maximumFractionDigits: 0 })}\n` +
+	            `Capacidad máxima posible: ${formatNumber(maxInternalProduction, { maximumFractionDigits: 0 })}\n\n` +
+	            "Aumenta 'cap_max', desactiva 'Evitar Producción Consecutiva' o activa 'Subcontratación'."
+	          );
+	          return false;
+	        }
+	      }
+
+	      return true;
+	    }
+
+	    function buildPayload(capacidadesOverride = null) {
       const data = {};
       document.querySelectorAll('#data-table tbody tr').forEach(row => {
         const month = row.getAttribute('data-month');
@@ -932,8 +1042,8 @@
         tiempos_procesos[input.id.replace('time-', '')] = fallbackNumber(input);
       });
 
-      const payload = {
-        data, tiempos_procesos,
+	      const payload = {
+	        data, tiempos_procesos,
         p_inv_inicial: fallbackNumber(document.getElementById('p_inv_inicial')),
         p_inv_final: fallbackNumber(document.getElementById('p_inv_final')),
         unidad: fallbackNumber(document.getElementById('unidad')),
@@ -947,14 +1057,23 @@
         costo_maquina: fallbackNumber(document.getElementById('costo_maquina')),
         costo_prod: fallbackNumber(document.getElementById('costo_prod')),
         costo_inv: fallbackNumber(document.getElementById('costo_inv')),
-        reps: fallbackNumber(document.getElementById('reps')),
-        use_no_consecutive: document.getElementById('use_no_consecutive').checked,
-        use_safe_stock: document.getElementById('use_safe_stock').checked,
-        use_smooth: document.getElementById('use_smooth').checked,
-        alpha: fallbackNumber(document.getElementById('alpha')),
-        smooth_pct: fallbackNumber(document.getElementById('smooth_pct')),
-        graficar: true, return_tables: true, make_plots: true, verbose: true
-      };
+	        reps: fallbackNumber(document.getElementById('reps')),
+	        use_no_consecutive: document.getElementById('use_no_consecutive').checked,
+	        use_fixed_cost_capacity: document.getElementById('use_fixed_cost_capacity').checked,
+	        use_layoff_limit: document.getElementById('use_layoff_limit').checked,
+	        use_max_hours: document.getElementById('use_max_hours').checked,
+	        use_subcontracting: document.getElementById('use_subcontracting').checked,
+	        use_safe_stock: document.getElementById('use_safe_stock').checked,
+	        use_smooth: document.getElementById('use_smooth').checked,
+	        max_hours: fallbackNumber(document.getElementById('max_hours')),
+	        cap_max: fallbackNumber(document.getElementById('cap_max')),
+	        fixed_cost: fallbackNumber(document.getElementById('fixed_cost')),
+	        layoff_pct: fallbackNumber(document.getElementById('layoff_pct')),
+	        csc: fallbackNumber(document.getElementById('csc')),
+	        alpha: fallbackNumber(document.getElementById('alpha')),
+	        smooth_pct: fallbackNumber(document.getElementById('smooth_pct')),
+	        graficar: true, return_tables: true, make_plots: true, verbose: true
+	      };
       if (Array.isArray(capacidadesOverride)) {
         payload.capacidades_override = capacidadesOverride;
       }
@@ -1001,9 +1120,59 @@
       return Number.isFinite(zBase) ? zBase : NaN;
     }
 
-    function getObjectiveLabel(result) {
-      return Number.isFinite(Number(result?.z_total)) ? "Objetivo total (Z + máquinas)" : "Valor objetivo (Z)";
-    }
+	    function getObjectiveLabel(result) {
+	      return Number.isFinite(Number(result?.z_total)) ? "Objetivo total (Z + máquinas)" : "Valor objetivo (Z)";
+	    }
+
+      function safeSheetName(name) {
+        const raw = String(name || 'Hoja').replace(/[\\/*?:[\]]/g, '_');
+        return raw.slice(0, 31) || 'Hoja';
+      }
+
+      function appendJsonSheet(workbook, name, rows) {
+        const dataRows = Array.isArray(rows) && rows.length ? rows : [{ Info: 'Sin datos' }];
+        const worksheet = XLSX.utils.json_to_sheet(dataRows);
+        XLSX.utils.book_append_sheet(workbook, worksheet, safeSheetName(name));
+      }
+
+      function buildSummaryRows(result) {
+        const capacities = result?.capacities || {};
+        return [{
+          Estado: result?.status ?? '',
+          Z_base: Number.isFinite(Number(result?.z)) ? Number(result.z) : '',
+          Z_total: Number.isFinite(Number(result?.z_total)) ? Number(result.z_total) : '',
+          Demanda_Total: Number.isFinite(Number(result?.total_demand)) ? Number(result.total_demand) : '',
+          Produccion_Total: Number.isFinite(Number(result?.total_production)) ? Number(result.total_production) : '',
+          Costo_Maquinas_Total: Number.isFinite(Number(result?.costo_maquinas_total)) ? Number(result.costo_maquinas_total) : '',
+          Capacidades_Ideales: Array.isArray(capacities.ideal) ? capacities.ideal.join(', ') : '',
+          Capacidades_Usadas: Array.isArray(capacities.used) ? capacities.used.join(', ') : ''
+        }];
+      }
+
+      function downloadResultsExcel(source = 'base') {
+        const result = source === 'recalc'
+          ? (recalcResult || lastResult)
+          : (baseResult || lastResult);
+
+        if (!result) {
+          alert('No hay resultados para exportar todavía.');
+          return;
+        }
+
+        const workbook = XLSX.utils.book_new();
+        appendJsonSheet(workbook, 'Resumen', buildSummaryRows(result));
+        appendJsonSheet(workbook, 'Agregado', result.json_agg_table);
+        appendJsonSheet(workbook, 'Desagregado', result.json_disagg_table);
+        appendJsonSheet(workbook, 'Prod_Producto', result.json_tabla_produccion);
+        appendJsonSheet(workbook, 'Inv_Producto', result.json_tabla_inventario);
+        appendJsonSheet(workbook, 'Sim_Totales', result.json_sim_totales);
+        appendJsonSheet(workbook, 'Sim_Productos', result.json_sim_productos);
+        appendJsonSheet(workbook, 'Sim_Estaciones', result.json_sim_estaciones);
+
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const suffix = source === 'recalc' ? 'recalc' : 'base';
+        XLSX.writeFile(workbook, `planeacion_resultados_${suffix}_${stamp}.xlsx`);
+      }
 
     function renderManualCapacityFeedback(result) {
       const feedbackEl = document.getElementById('manual-capacity-feedback');
@@ -1072,20 +1241,22 @@
       }
     });
 
-    function renderResults(result, isRecalc = false) {
-      const resultsEl = document.getElementById(isRecalc ? 'results-recalc' : 'results');
+	    function renderResults(result, isRecalc = false) {
+	      const resultsEl = document.getElementById(isRecalc ? 'results-recalc' : 'results');
 
-      if (!isRecalc) {
-        window.originalZ = getObjectiveForComparison(result);
-        window.originalStatus = result.status;
-        const recalcEl = document.getElementById('results-recalc');
-        if (recalcEl) {
-          recalcEl.innerHTML = '';
-          recalcEl.classList.add('hidden');
-        }
-      } else {
-        document.getElementById('results-recalc').classList.remove('hidden');
-      }
+	      if (!isRecalc) {
+	        baseResult = result;
+	        window.originalZ = getObjectiveForComparison(result);
+	        window.originalStatus = result.status;
+	        const recalcEl = document.getElementById('results-recalc');
+	        if (recalcEl) {
+	          recalcEl.innerHTML = '';
+	          recalcEl.classList.add('hidden');
+	        }
+	      } else {
+          recalcResult = result;
+	        document.getElementById('results-recalc').classList.remove('hidden');
+	      }
 
       const suffix = isRecalc ? '-recalc' : '';
       const objectiveValue = getObjectiveForComparison(result);
@@ -1119,7 +1290,7 @@
                 <div class="flex justify-between items-center mb-6" id="recalc-header-actions${suffix}">
                     <h2 class="text-2xl font-light text-white">${isRecalc ? 'Resultados Recalculados' : 'Resultados de la Simulación'}</h2>
                     <div class="flex gap-2">
-                      <button class="px-4 py-2 border border-brand-500/50 hover:bg-brand-500/20 text-brand-300 rounded-lg transition-colors flex gap-2 items-center text-sm neon-glow" onclick="alert('Funcionalidad de exportación a implementar')">
+                      <button class="px-4 py-2 border border-brand-500/50 hover:bg-brand-500/20 text-brand-300 rounded-lg transition-colors flex gap-2 items-center text-sm neon-glow" onclick="downloadResultsExcel('${isRecalc ? 'recalc' : 'base'}')">
                           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
                           Descargar Excel
                       </button>

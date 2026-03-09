@@ -30,11 +30,11 @@ def plan_produccion_optimo(
     alpha=0.5,
     use_max_hours=False, max_hours=4160,
     use_safety_stock=False,
-    use_fixed_cost_capacity=False, cap_max=4400, fixed_cost=1,
+    use_fixed_cost_capacity=False, cap_max=1000000, fixed_cost=1,
     use_no_consecutive=False,
     use_smooth=False, smooth_pct=0.20,
     use_layoff_limit=False, layoff_pct=0.10,
-    use_subcontracting=False, csc=95.0,
+    use_subcontracting=False, csc=100,
     solver=None, solver_msg=0,
     graficar=False,
     H_mes_Ma=192,
@@ -134,6 +134,17 @@ def plan_produccion_optimo(
             for t in meses:
                 mdl += pt[t] <= cap_max * Y[t], f"Capacidad_Max_{t}"
         if use_no_consecutive:
+            # Link production with the binary activation variable when the
+            # no-consecutive option is enabled. This keeps the original model
+            # structure and only enforces that pt[t] > 0 implies Y[t] = 1.
+            big_m_no_consecutive = (
+                float(sum(max(0.0, float(total_mes[m])) for m in meses))
+                + float(max(0.0, initial_stock))
+                + float(max(0.0, final_stock))
+                + 1.0
+            )
+            for t in meses:
+                mdl += pt[t] <= big_m_no_consecutive * Y[t], f"Link_NoConsecutivo_{t}"
             for i in range(len(meses) - 1):
                 t = meses[i]
                 t_next = meses[i + 1]
@@ -324,7 +335,10 @@ def desagregado_optimo(
     ponderaciones,  # array/Serie de largo J
     costo_prod=1.0,  # ya no se usa en el objetivo, se mantiene por compatibilidad
     costo_inv=0.25,  # idem
-    modo_ponderacion="exact"  # "exact" o "min"
+    modo_ponderacion="exact",  # "exact" o "min"
+    inv_prop_rel_tol=1e-6,
+    inv_prop_abs_tol=1e-6,
+    SC_agregado=None  # dict {mes: SC(t)} subcontratación mensual agregada (None para desactivar)
 ):
     orden_meses = [
         "January","February","March","April","May","June",
@@ -333,6 +347,7 @@ def desagregado_optimo(
     meses = [m for m in orden_meses if m in data.keys()]
     productos = list(range(len(next(iter(data.values())))))
     w = {j: float(ponderaciones[j]) for j in productos}
+    usar_subcontratacion = SC_agregado is not None
 
     # --- Modelo PuLP ---
     if HAS_PULP:
@@ -340,6 +355,10 @@ def desagregado_optimo(
 
         mdl = LpProblem("Desagregado", sense=LpMaximize)
         Pij = LpVariable.dicts("Produccion", (meses, productos), lowBound=0, cat="Continuous")
+        if usar_subcontratacion:
+            SCij = LpVariable.dicts("Subcontratacion", (meses, productos), lowBound=0, cat="Continuous")
+        else:
+            SCij = {}
         Iij = LpVariable.dicts("Inventario", (meses, productos), lowBound=0, cat="Continuous")
 
         # Objetivo: maximizar la producción total
@@ -349,24 +368,36 @@ def desagregado_optimo(
             # balance por producto
             for j in productos:
                 demanda_ij = float(data[m][j])
+                oferta_ij = Pij[m][j] + (SCij[m][j] if usar_subcontratacion else 0)
                 if m_idx == 0:
-                    mdl += Iij[m][j] == float(inv_inicial_j[j]) + Pij[m][j] - demanda_ij, f"Inv_{m}_prod{j}"
+                    mdl += Iij[m][j] == float(inv_inicial_j[j]) + oferta_ij - demanda_ij, f"Inv_{m}_prod{j}"
                 else:
                     prev = meses[m_idx - 1]
-                    mdl += Iij[m][j] == Iij[prev][j] + Pij[m][j] - demanda_ij, f"Inv_{m}_prod{j}"
+                    mdl += Iij[m][j] == Iij[prev][j] + oferta_ij - demanda_ij, f"Inv_{m}_prod{j}"
 
-            # capacidad agregada
+            # capacidad agregada de producción interna
             if m not in P_agregado:
                 raise KeyError(f"No encuentro P_agregado para el mes '{m}'. Verifica las claves.")
             mdl += lpSum(Pij[m][j] for j in productos) <= float(P_agregado[m]), f"Capacidad_{m}"
+            # capacidad agregada de subcontratación
+            if usar_subcontratacion:
+                if m not in SC_agregado:
+                    raise KeyError(f"No encuentro SC_agregado para el mes '{m}'. Verifica las claves.")
+                mdl += lpSum(SCij[m][j] for j in productos) <= float(SC_agregado[m]), f"Subcontratacion_{m}"
 
             # inventario agregado -> desagregado según modo
             if m not in I_agregado:
                 raise KeyError(f"No encuentro I_agregado para el mes '{m}'. Verifica las claves.")
             I_m = float(I_agregado[m])
             if modo_ponderacion == "exact":
+                # Keep monthly aggregate inventory exact, but relax per-product
+                # proportionality to avoid tiny numeric infeasibilities.
+                tol = max(float(inv_prop_abs_tol), float(inv_prop_rel_tol) * max(1.0, abs(I_m)))
+                mdl += lpSum(Iij[m][j] for j in productos) == I_m, f"InvAgregadoExact_{m}"
                 for j in productos:
-                    mdl += Iij[m][j] == w[j] * I_m, f"InvPondExact_{m}_prod{j}"
+                    target = w[j] * I_m
+                    mdl += Iij[m][j] >= target - tol, f"InvPondExactLB_{m}_prod{j}"
+                    mdl += Iij[m][j] <= target + tol, f"InvPondExactUB_{m}_prod{j}"
             elif modo_ponderacion == "min":
                 mdl += lpSum(Iij[m][j] for j in productos) == I_m, f"InvAgregado_{m}"
                 for j in productos:
@@ -390,6 +421,7 @@ def desagregado_optimo(
                     "Mes": m,
                     "Producto": j,
                     "Produccion": float(Pij[m][j].value() or 0.0),
+                    "Subcontratacion": float(SCij[m][j].value() or 0.0) if usar_subcontratacion else 0.0,
                     "Inventario": float(Iij[m][j].value() or 0.0),
                     "Demanda": float(data[m][j])
                 })
@@ -402,15 +434,19 @@ def desagregado_optimo(
     if M == 0 or J == 0:
         return {"status": "Infeasible", "df": pd.DataFrame(), "modelo": None}
 
-    nvar = 2 * M * J  # [P | I] por mes
+    block_size = (3 if usar_subcontratacion else 2) * J  # [P | SC | I] o [P | I]
+    nvar = block_size * M
     c = np.zeros(nvar)
 
     # Objetivo de maximización con linprog (minimiza c^T x): poner -1 a P para maximizar sum P
     for i, m in enumerate(meses):
-        base = i * 2 * J
+        base = i * block_size
         for j in productos:
             idxP = base + j
-            idxI = base + J + j
+            if usar_subcontratacion:
+                idxI = base + 2 * J + j
+            else:
+                idxI = base + J + j
             c[idxP] = -1.0   # maximiza producción total
             c[idxI] =  0.0   # inventario no entra al objetivo
 
@@ -418,62 +454,111 @@ def desagregado_optimo(
 
     # balance inventario por producto
     for i, m in enumerate(meses):
-        base = i * 2 * J
+        base = i * block_size
         for j in productos:
             idxP = base + j
-            idxI = base + J + j
+            idxSC = (base + J + j) if usar_subcontratacion else None
+            if usar_subcontratacion:
+                idxI = base + 2 * J + j
+            else:
+                idxI = base + J + j
             row = np.zeros(nvar)
             if i == 0:
                 row[idxI] = 1
                 row[idxP] = -1
+                if usar_subcontratacion:
+                    row[idxSC] = -1
                 A_eq.append(row)
                 b_eq.append(float(inv_inicial_j[j]) - float(data[m][j]))
             else:
-                prev_base = (i - 1) * 2 * J
-                idxI_prev = prev_base + J + j
+                prev_base = (i - 1) * block_size
+                if usar_subcontratacion:
+                    idxI_prev = prev_base + 2 * J + j
+                else:
+                    idxI_prev = prev_base + J + j
                 row[idxI] = 1
                 row[idxI_prev] = -1
                 row[idxP] = -1
+                if usar_subcontratacion:
+                    row[idxSC] = -1
                 A_eq.append(row)
                 b_eq.append(-float(data[m][j]))
 
     # capacidad y restricciones de inventario agregado
     for i, m in enumerate(meses):
-        base = i * 2 * J
+        base = i * block_size
         # capacidad: sum_j P[i][j] <= P_agregado[m]
         row_cap = np.zeros(nvar)
         for j in productos:
             row_cap[base + j] = 1
         A_ub.append(row_cap)
         b_ub.append(float(P_agregado[m]))
+        # subcontratación agregada: sum_j SC[i][j] <= SC_agregado[m]
+        if usar_subcontratacion:
+            if m not in SC_agregado:
+                raise KeyError(f"No encuentro SC_agregado para el mes '{m}'. Verifica las claves.")
+            row_sc = np.zeros(nvar)
+            for j in productos:
+                row_sc[base + J + j] = 1
+            A_ub.append(row_sc)
+            b_ub.append(float(SC_agregado[m]))
 
         # inventario agregado (exact o min)
         I_m = float(I_agregado[m])
         if modo_ponderacion == "exact":
+            tol = max(float(inv_prop_abs_tol), float(inv_prop_rel_tol) * max(1.0, abs(I_m)))
+            row_sum = np.zeros(nvar)
             for j in productos:
-                row = np.zeros(nvar)
-                row[base + J + j] = 1
-                A_eq.append(row)
-                b_eq.append(w[j] * I_m)
+                if usar_subcontratacion:
+                    row_sum[base + 2 * J + j] = 1
+                else:
+                    row_sum[base + J + j] = 1
+            A_eq.append(row_sum)
+            b_eq.append(I_m)
+            for j in productos:
+                if usar_subcontratacion:
+                    idxI = base + 2 * J + j
+                else:
+                    idxI = base + J + j
+                target = w[j] * I_m
+                # I_ij <= target + tol
+                row_up = np.zeros(nvar)
+                row_up[idxI] = 1
+                A_ub.append(row_up)
+                b_ub.append(target + tol)
+                # I_ij >= target - tol  <=>  -I_ij <= -(target - tol)
+                row_lo = np.zeros(nvar)
+                row_lo[idxI] = -1
+                A_ub.append(row_lo)
+                b_ub.append(-(target - tol))
         elif modo_ponderacion == "min":
             row_sum = np.zeros(nvar)
             for j in productos:
-                row_sum[base + J + j] = 1
+                if usar_subcontratacion:
+                    row_sum[base + 2 * J + j] = 1
+                else:
+                    row_sum[base + J + j] = 1
             A_eq.append(row_sum)
             b_eq.append(I_m)
             for j in productos:
                 row_min = np.zeros(nvar)
-                row_min[base + J + j] = -1
+                if usar_subcontratacion:
+                    row_min[base + 2 * J + j] = -1
+                else:
+                    row_min[base + J + j] = -1
                 A_ub.append(row_min)
                 b_ub.append(-w[j] * I_m)
         else:
             raise ValueError("modo_ponderacion debe ser 'exact' o 'min'.")
 
     # inventario final mínimo en el último mes
-    last_idx = (M - 1) * 2 * J
+    last_idx = (M - 1) * block_size
     for j in productos:
         row = np.zeros(nvar)
-        row[last_idx + J + j] = -1.0  # I_last_j >= inv_final_j -> -I_last_j <= -inv_final_j
+        if usar_subcontratacion:
+            row[last_idx + 2 * J + j] = -1.0  # I_last_j >= inv_final_j -> -I_last_j <= -inv_final_j
+        else:
+            row[last_idx + J + j] = -1.0
         A_ub.append(row)
         b_ub.append(-float(inv_final_j[j]))
 
@@ -490,21 +575,34 @@ def desagregado_optimo(
     if res.success:
         x = res.x
         for i, m in enumerate(meses):
-            base = i * 2 * J
+            base = i * block_size
             for j in productos:
                 idxP = base + j
-                idxI = base + J + j
+                if usar_subcontratacion:
+                    idxSC = base + J + j
+                    idxI = base + 2 * J + j
+                else:
+                    idxSC = None
+                    idxI = base + J + j
                 filas.append({
                     "Mes": m,
                     "Producto": j,
                     "Produccion": float(x[idxP]),
+                    "Subcontratacion": float(x[idxSC]) if usar_subcontratacion else 0.0,
                     "Inventario": float(x[idxI]),
                     "Demanda": float(data[m][j])
                 })
     else:
         for m in meses:
             for j in productos:
-                filas.append({"Mes": m, "Producto": j, "Produccion": None, "Inventario": None, "Demanda": float(data[m][j])})
+                filas.append({
+                    "Mes": m,
+                    "Producto": j,
+                    "Produccion": None,
+                    "Subcontratacion": None if usar_subcontratacion else 0.0,
+                    "Inventario": None,
+                    "Demanda": float(data[m][j])
+                })
 
     df = pd.DataFrame(filas)
     return {"status": status, "df": df, "modelo": None}
@@ -930,11 +1028,20 @@ def run_full_process(
     tiempos_procesos: dict,
     unidad: float,
     use_no_consecutive: bool=False,
+    use_fixed_cost_capacity:bool=False,
+    use_layoff_limit: bool=False,
+    use_max_hours: bool=False,
+    use_subcontracting: bool=False,
     use_safe_stock: bool=False,
     use_smooth: bool=False,
     ct: float=578, ht: float=145, pit: float=1e7,
     crt: float=5931.25, cot: float=5931.25,
     cwt: float=5931.25, cwt_prima: float=5931.25,
+    max_hours: float=4160,
+    cap_max: float=1000000,
+    fixed_cost: float=1,
+    layoff_pct: float=0.10,
+    csc: float=100,
     alpha: float=0.5, smooth_pct: float=0.20,
     graficar: bool=True,
     costo_prod: float=1.0, costo_inv: float=0.25,
@@ -968,11 +1075,18 @@ def run_full_process(
         ct=ct, ht=ht, pit=pit, crt=crt, cot=cot,
         cwt=cwt, cwt_prima=cwt_prima,
         m=m,
-        use_subcontracting=False,
         use_safety_stock=use_safe_stock,
         alpha=alpha,
-        use_fixed_cost_capacity=False,
         use_no_consecutive=use_no_consecutive,
+        use_fixed_cost_capacity=use_fixed_cost_capacity,
+        use_layoff_limit=use_layoff_limit,
+        use_max_hours=use_max_hours,
+        use_subcontracting=use_subcontracting,
+        max_hours=max_hours,
+        cap_max=cap_max,
+        fixed_cost=fixed_cost,
+        layoff_pct=layoff_pct,
+        csc=csc,
         use_smooth=use_smooth,
         smooth_pct=smooth_pct,
         solver_msg=0,
@@ -983,6 +1097,11 @@ def run_full_process(
     # --- Step 4: Disaggregate by product ---
     df_agg = agg_res["df"].copy()
     P_agregado = df_agg.set_index("Mes")["P(t)"].to_dict()
+    SC_agregado = None
+    if use_subcontracting:
+        if "SC(t)" not in df_agg.columns:
+            raise KeyError("No encuentro la columna 'SC(t)' en el resultado agregado con subcontratación activa.")
+        SC_agregado = df_agg.set_index("Mes")["SC(t)"].to_dict()
     I_agregado = df_agg.set_index("Mes")["I(t)"].to_dict()
     # compute weights per product and initial/final inventory per product
     totales_bebida = np.sum([np.array(vals, dtype=float) for vals in data.values()], axis=0)
@@ -1001,7 +1120,8 @@ def run_full_process(
         ponderaciones=ponderaciones,
         costo_prod=costo_prod,
         costo_inv=costo_inv,
-        modo_ponderacion='exact'
+        modo_ponderacion='exact',
+        SC_agregado=SC_agregado
     )
     df_desag = disagg_res["df"].copy()
     # --- Step 5: Create inventory and production tables ---
@@ -1126,6 +1246,10 @@ if __name__ == "__main__":
         unidad=3,
         use_no_consecutive=False,
         use_smooth=False,
+        use_fixed_cost_capacity=False,
+        use_layoff_limit = False,
+        use_max_hours=False,
+        use_subcontracting=True,
         ct=578,
         ht=145,
         pit=10000000,
@@ -1146,3 +1270,5 @@ if __name__ == "__main__":
     print("Aggregated objective:", results['agg']['z'])
     print("Disaggregated model status:", results['disagg']['status'])
     print("Simulation totals table:\n", results['sim_totales'])
+    print("Simulation products table:\n", results['sim_productos'])
+    print("Simulation stations table:\n", results['sim_estaciones'])
